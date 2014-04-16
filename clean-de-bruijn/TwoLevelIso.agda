@@ -110,15 +110,12 @@ wftToAt (an S (BSum x x₁) , wf-sum w w₁ x₂ x₃) with wftToAt (x , w) | wf
 ... | α | α₁ = SSum α α₁
 wftToAt (an D at' , w) = D (wftTot' (an D at' , w , D⊑D))
 
--- TODO: ../BTA10.lagda contains a complete proof for the type
--- isomorpisms. It needs to be refactored to fit the definitions/names
--- used in the paper.
 lem-iso-left SNum = refl
 lem-iso-left (SFun α α₁) rewrite lem-iso-left α | lem-iso-left α₁ = refl
-lem-iso-left (SPrd α α₁) rewrite lem-iso-left α | lem-iso-left α₁ = refl -- refl
+lem-iso-left (SPrd α α₁) rewrite lem-iso-left α | lem-iso-left α₁ = refl
 lem-iso-left (SSum α α₁) rewrite lem-iso-left α | lem-iso-left α₁ = refl
 lem-iso-left (D τ) with lem-tToWft-dyn τ 
-lem-iso-left (D τ) | bt , w , p rewrite lem-iso-left-dyn τ | p = {! !}
+lem-iso-left (D τ) | bt , w , p rewrite sym (cong {A = Type} {B = AType} D (lem-iso-left-dyn τ))  | p = refl
 
 lem-iso-right (an S BNum) wf-num = refl
 lem-iso-right (an S (BFun x x₁)) (wf-fun w w₁ x₂ x₃)
@@ -128,4 +125,4 @@ lem-iso-right (an S (BPrd x x₁)) (wf-prd w w₁ x₂ x₃)
 lem-iso-right (an S (BSum x x₁)) (wf-sum w w₁ x₂ x₃)
   rewrite lem-iso-right x w | lem-iso-right x₁ w₁ = refl
 lem-iso-right (an D x₁) w with lem-tToWft-dyn (wftTot (an D x₁) w D⊑D) 
-lem-iso-right (an D x₁) w | proj₁ , proj₂ , proj₃ rewrite proj₃ = {!!}
+lem-iso-right (an D x₁) w | proj₁ , proj₂ , proj₃ rewrite lem-iso-right-dyn (an D x₁) w (D⊑D) = refl
