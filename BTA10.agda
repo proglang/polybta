@@ -370,15 +370,45 @@ module BTA10 where
    ------------------------------------
    --projection from [atype] to [AType]
    ------------------------------------
-   projT₁ : atype → AType 
-   projT₁ SInt = an S BInt
-   projT₁ (SFun aty aty₁) = an S (BFun (projT₁ aty) (projT₁ aty₁))
-   projT₁ (D Int) = an D BInt
-   projT₁ (D (Fun x x₁)) = an D (BFun (projT₁ (D x)) (projT₁ (D x₁)))
-   projT₁ (D (x • x₁)) = an D (projT₁ (D x) • projT₁ (D x₁))
-   projT₁ (D (x ⊎ x₁)) = an D (projT₁ (D x) ⊎ projT₁ (D x₁))
-   projT₁ (aty • aty₁) = an S ((projT₁ aty) • projT₁ aty₁)
-   projT₁ (aty ⊎ aty₁) = an S ((projT₁ aty) ⊎ projT₁ aty₁)
+   --Note that the projected type should 
+   --be well-formed
+   -----------------------
+   --some auxiliary lemmas
+   -----------------------
+   S⊑* : ∀ {α} → S ⊑ btof α
+   S⊑* {an S x₁} = reflS
+   S⊑* {an D x₁} = S≤D
+
+   B⊑B : ∀ {B} → B ⊑ B
+   B⊑B {S} = reflS
+   B⊑B {D} = reflD
+ 
+   
+    
+   
+   mutual
+    projT₁ : atype → Σ AType \ x → wft x 
+    projT₁ SInt = (an S BInt) , wf-int
+    projT₁ (SFun aty aty₁) = 
+       (an S (BFun (proj₁ (projT₁ aty)) (proj₁ (projT₁ aty₁))))
+       , wf-fun (proj₂ (projT₁ aty)) (proj₂ (projT₁ aty₁)) (S⊑* {proj₁ (projT₁ aty)}) (S⊑* {proj₁ (projT₁ aty₁)})
+    projT₁ (D Int) = (an D BInt) , wf-int
+    projT₁ (D (Fun x x₁))  = (an D (BFun (proj₁ (projT₁ (D x))) (proj₁ (projT₁ (D x₁))))) 
+      , wf-fun (proj₂ (projT₁ (D x))) (proj₂ (projT₁ (D x₁))) (btof-projT₁ {x}) (btof-projT₁ {x₁})
+    projT₁ (D (x • x₁)) = (an D (proj₁ (projT₁ (D x)) • proj₁ (projT₁ (D x₁)))) 
+      , wf-pair (proj₂ (projT₁ (D x))) (proj₂ (projT₁ (D x₁))) (btof-projT₁ {x}) (btof-projT₁ {x₁})
+    projT₁ (D (x ⊎ x₁)) = an D (proj₁ (projT₁ (D x)) ⊎ proj₁ (projT₁ (D x₁))) 
+      , wf-sum (proj₂ (projT₁ (D x))) (proj₂ (projT₁ (D x₁))) (btof-projT₁ {x}) (btof-projT₁ {x₁})
+    projT₁ (aty • aty₁) = an S (proj₁ (projT₁ aty) • proj₁ (projT₁ aty₁)) 
+      , wf-pair (proj₂ (projT₁ aty)) (proj₂ (projT₁ aty₁)) (S⊑* {proj₁ (projT₁ aty)}) (S⊑* {proj₁ (projT₁ aty₁)})
+    projT₁ (aty ⊎ aty₁) = (an S (proj₁ (projT₁ aty) ⊎ proj₁ (projT₁ aty₁))) 
+      , wf-sum (proj₂ (projT₁ aty)) (proj₂ (projT₁ aty₁)) (S⊑* {proj₁ (projT₁ aty)}) (S⊑* {proj₁ (projT₁ aty₁)})
+
+    btof-projT₁ : ∀ {x} → D ⊑ btof (proj₁ (projT₁ (D x)))
+    btof-projT₁ {Int} = reflD
+    btof-projT₁ {Fun x x₁} = reflD
+    btof-projT₁ {x • x₁} = reflD
+    btof-projT₁ {x ⊎ x₁} = reflD
   
    --a.2. [AType] to [atype]
    --imposing [wft] upon types defined in [AType] before projection
@@ -403,6 +433,8 @@ module BTA10 where
    ------------------------
    --from [atype] to [type]
    ------------------------
+
+ 
    γ→τ : atype → type
    γ→τ SInt = Int
    γ→τ (SFun aty aty₁) = Fun (γ→τ aty) (γ→τ aty₁)
@@ -430,44 +462,29 @@ module BTA10 where
    -----------------------
    --some auxiliary lemmas
    -----------------------
-   S⊑* : ∀ {α} → S ⊑ btof α
-   S⊑* {an S x₁} = reflS
-   S⊑* {an D x₁} = S≤D
-  
-   a-pDatype : ∀ {τ : type} → btof (projT₁ (D τ)) ≡ D
+   a-pDatype : ∀ {τ : type} → btof (proj₁ (projT₁ (D τ))) ≡ D
    a-pDatype {Int} = refl
    a-pDatype {Fun τ τ₁} = refl
    a-pDatype {τ • τ₁} = refl
    a-pDatype {τ ⊎ τ₁} = refl
 
-   D-a-pDatype : ∀ {τ : type} → D ⊑ (btof (projT₁ (D τ)))
+   D-a-pDatype : ∀ {τ : type} → D ⊑ (btof (proj₁ (projT₁ (D τ))))
    D-a-pDatype {τ} rewrite a-pDatype {τ} = reflD
-   
-   isoT₁ : ∀ (γ : atype) → Σ (wft (projT₁ γ)) \ x → γ ≡ projT₂ (projT₁ γ) x  
-   isoT₁ SInt = wf-int , refl
-   isoT₁ (SFun γ γ₁)  with (proj₂ (isoT₁ γ)) | (proj₂ (isoT₁ γ₁))
-   ... | I | I' = wf-fun (proj₁ (isoT₁ γ)) (proj₁ (isoT₁ γ₁)) (S⊑* {(projT₁ γ)}) (S⊑* {projT₁ γ₁}) , cong₂ SFun I I'
-   isoT₁ (D Int) = wf-int , refl
-   isoT₁ (D (Fun x x₁)) = wf-fun (proj₁ (isoT₁ (D x))) (proj₁ (isoT₁ (D x₁))) (D-a-pDatype {x}) (D-a-pDatype {x₁}) ,
-                                  cong 
-                                    D
-                                  (cong₂ Fun (cong γ→τ (proj₂ (isoT₁ (D x))))
-                                  (cong γ→τ (proj₂ (isoT₁ (D x₁)))))
-   isoT₁ (D (x • x₁)) = wf-pair (proj₁ (isoT₁ (D x))) (proj₁ (isoT₁ (D x₁))) (D-a-pDatype {x}) (D-a-pDatype {x₁}) , 
-                                  cong 
-                                    D
-                                  (cong₂ _•_ (cong γ→τ (proj₂ (isoT₁ (D x))))
-                                  (cong γ→τ (proj₂ (isoT₁ (D x₁)))))
-   isoT₁ (D (x ⊎ x₁)) = wf-sum (proj₁ (isoT₁ (D x))) (proj₁ (isoT₁ (D x₁))) (D-a-pDatype {x}) (D-a-pDatype {x₁}) ,
-                                  cong 
-                                    D
-                                  (cong₂ _⊎_ (cong γ→τ (proj₂ (isoT₁ (D x))))
-                                  (cong γ→τ (proj₂ (isoT₁ (D x₁)))))
-   isoT₁ (γ • γ₁) = wf-pair (proj₁ (isoT₁ γ)) (proj₁ (isoT₁ γ₁)) (S⊑* {projT₁ γ}) (S⊑* {projT₁ γ₁}) , 
-                             cong₂ _•_ (proj₂ (isoT₁ γ)) (proj₂ (isoT₁ γ₁))
-   isoT₁ (γ ⊎ γ₁) = wf-sum (proj₁ (isoT₁ γ)) (proj₁ (isoT₁ γ₁)) (S⊑* {projT₁ γ}) (S⊑* {projT₁ γ₁}) , 
-                             cong₂ _⊎_ (proj₂ (isoT₁ γ)) (proj₂ (isoT₁ γ₁))
 
+
+   isoT₁ : ∀ (γ : atype) → γ ≡ projT₂ (proj₁ (projT₁ γ)) (proj₂ (projT₁ γ))
+   isoT₁ SInt = refl
+   isoT₁ (SFun aty aty₁) with (isoT₁ aty) | (isoT₁ aty₁) 
+   ... | I | I'  rewrite cong₂ SFun I I' = refl
+   isoT₁ (D Int) = refl
+   isoT₁ (D (Fun x x₁)) = cong D
+                            (cong₂ Fun (cong γ→τ (isoT₁ (D x))) (cong γ→τ (isoT₁ (D x₁))))
+   isoT₁ (D (x • x₁)) = cong D
+                          (cong₂ _•_ (cong γ→τ (isoT₁ (D x))) (cong γ→τ (isoT₁ (D x₁))))
+   isoT₁ (D (x ⊎ x₁)) = cong D
+                          (cong₂ _⊎_ (cong γ→τ (isoT₁ (D x))) (cong γ→τ (isoT₁ (D x₁))))
+   isoT₁ (aty • aty₁) = cong₂ _•_ (isoT₁ aty) (isoT₁ aty₁)
+   isoT₁ (aty ⊎ aty₁) = cong₂ _⊎_ (isoT₁ aty) (isoT₁ aty₁)  
   
    -----------------------------------------------------------
    --direction two:"starting from type in well-formed [AType]"
@@ -475,6 +492,8 @@ module BTA10 where
    -----------------------
    --some auxiliary lemmas
    -----------------------
+
+ 
    eqDγ→τprojT₂ : ∀ {α : AType} {wf : wft α} → D ⊑ btof α → D (γ→τ (projT₂ α wf)) ≡ projT₂ α wf
    eqDγ→τprojT₂ {an S BInt} {wf-int} ()
    eqDγ→τprojT₂ {an D BInt} {wf-int} e = refl
@@ -487,7 +506,7 @@ module BTA10 where
 
    
   
-   isoT₂ : ∀ {α : AType} → (wf : wft α) → α ≡  projT₁ (projT₂ α wf)
+   isoT₂ : ∀ {α : AType} → (wf : wft α) → α ≡  proj₁ (projT₁ (projT₂ α wf))
    isoT₂ {an S BInt} wf-int = refl
    isoT₂ {an S (BFun x x₁)} (wf-fun wf wf₁ x₂ x₃) = cong₂ an refl (cong₂ BFun (isoT₂ {x} wf) (isoT₂ {x₁} wf₁))
    isoT₂ {an S (x • x₁)} (wf-pair wf wf₁ x₂ x₃) = cong₂ an refl (cong₂ _•_ (isoT₂ {x} wf) (isoT₂ {x₁} wf₁))
@@ -497,23 +516,23 @@ module BTA10 where
        cong₂ an refl
          (cong₂ BFun
           (trans (isoT₂ {x} wf)
-           (sym (cong projT₁ (eqDγ→τprojT₂ {x} {wf} x₂))))
+          (cong proj₁ (sym (cong projT₁ (eqDγ→τprojT₂ {x} {wf} x₂)))))
           (trans (isoT₂ {x₁} wf₁)
-           (sym (cong projT₁ (eqDγ→τprojT₂ {x₁} {wf₁} x₃)))))
-   isoT₂ {an D (x • x₁)} (wf-pair wf wf₁ x₂ x₃) = 
+          (cong proj₁ (sym (cong projT₁ (eqDγ→τprojT₂ {x₁} {wf₁} x₃))))))
+   isoT₂ {an D (x • x₁)} (wf-pair wf wf₁ x₂ x₃) =
          cong₂ an refl
            (cong₂ _•_
             (trans (isoT₂ {x} wf)
-             (sym (cong projT₁ (eqDγ→τprojT₂ {x} {wf} x₂))))
+            (cong proj₁ (sym (cong projT₁ (eqDγ→τprojT₂ {x} {wf} x₂)))))
             (trans (isoT₂ {x₁} wf₁)
-             (sym (cong projT₁ (eqDγ→τprojT₂ {x₁} {wf₁} x₃)))))
+            (cong proj₁ (sym (cong projT₁ (eqDγ→τprojT₂ {x₁} {wf₁} x₃))))))
    isoT₂ {an D (x ⊎ x₁)} (wf-sum wf wf₁ x₂ x₃) = 
          cong₂ an refl
            (cong₂ _⊎_
             (trans (isoT₂ {x} wf)
-             (sym (cong projT₁ (eqDγ→τprojT₂ {x} {wf} x₂))))
+            (cong proj₁ (sym (cong projT₁ (eqDγ→τprojT₂ {x} {wf} x₂)))))
             (trans (isoT₂ {x₁} wf₁)
-             (sym (cong projT₁ (eqDγ→τprojT₂ {x₁} {wf₁} x₃))))) 
+            (cong proj₁ (sym (cong projT₁ (eqDγ→τprojT₂ {x₁} {wf₁} x₃)))))) 
   
    
    ------------------------------------------------
