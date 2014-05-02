@@ -25,3 +25,7 @@ mapIdx : {A B : Set} → (f : A → B) →
 mapIdx f hd = hd
 mapIdx f (tl x₁) = tl (mapIdx f x₁)
 
+cong₃ : ∀ {a b c d} {A : Set a} {B : Set b} {C : Set c} {D : Set d}
+  (f : A → B → C → D) {xa ya xb yb xc yc} →
+  xa ≡ ya → xb ≡ yb → xc ≡ yc → f xa xb xc ≡ f ya yb yc
+cong₃ f refl refl refl = refl
