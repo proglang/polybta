@@ -247,25 +247,7 @@ mutual
                           | sym (cong (λ f → f v') (int↑-equiv e v (envext) eq))
                           |  (cong (λ f → f v') eq) = refl 
 
-natrec-correct : ∀ {n Δ σ}
-               { e₀ : AExp Δ (D σ) }
-               { e₁ : AExp Δ (SFun (D σ) (D σ)) }
-               { Γ' ρ' ρ'' } { env' : Env Γ' } →
-  ev (pe e₀ ρ') env' ≡ ev (residualize e₀) ρ'' → 
-  ({Γ₁' : List Type} {ρ₁' : Env Γ₁'} {Γ↝Γ' : Γ' ↝ Γ₁'} →
-        Γ↝Γ' ⊢ env' ↝ ρ₁' →
-        {xₐ : Exp Γ₁' σ} {x₁ : TInt σ} →
-        ev xₐ ρ₁' ≡ x₁ →
-        ev (pe e₁ ρ' Γ↝Γ' xₐ) ρ₁' ≡ ev (residualize e₁) ρ'' x₁) → 
-  ev (natrec n (pe e₀ ρ') (pe e₁ ρ' refl)) env' ≡ 
-  natrec n (ev (residualize e₀) ρ'') (ev (residualize e₁) ρ'')
-natrec-correct {zero} IA₀ IA₁ = IA₀
-natrec-correct {suc n} {Δ} {σ} {e₀ = e₀} {e₁ = e₁} {Γ' = Γ'} {ρ' = ρ'} {ρ'' = ρ''} {env' = env'} IA₀ IA₁ with natrec-correct {n} 
-... | IA = IA₁ refl {natrec n (pe e₀ ρ') (pe e₁ ρ' refl)}
-             {natrec n (ev (residualize e₀) ρ'') (ev (residualize e₁) ρ'')}
-             (IA {Δ} {σ} {e₀} {e₁} {Γ'} {ρ'} {ρ''} {env'} IA₀ IA₁)
-
-natrec-correct-2 :
+natrec-correct :
           ∀ {Δ} → 
           (n : _) →
           (Γ' : List Type)
@@ -283,9 +265,9 @@ natrec-correct-2 :
           Equiv env'
           (natrec n (pe e₀ ρ') (pe e₁ ρ' refl))
           (natrec n (ev (residualize e₀) ρ'') (ev (residualize e₁) ρ''))
-natrec-correct-2 zero Γ' ρ' ρ'' α e₀ e₁ env' IA₀ IA₁ = IA₀
-natrec-correct-2 (suc n) Γ' ρ' ρ'' α e₀ e₁ env' IA₀ IA₁ 
-  with natrec-correct-2 n Γ' ρ' ρ'' α e₀ e₁ env' IA₀ IA₁ 
+natrec-correct zero Γ' ρ' ρ'' α e₀ e₁ env' IA₀ IA₁ = IA₀
+natrec-correct (suc n) Γ' ρ' ρ'' α e₀ e₁ env' IA₀ IA₁ 
+  with natrec-correct n Γ' ρ' ρ'' α e₀ e₁ env' IA₀ IA₁ 
 ... | IA = IA₁ refl IA
 
 pe-correct : ∀ { α Δ Γ' } →
@@ -297,22 +279,9 @@ pe-correct : ∀ { α Δ Γ' } →
 pe-correct (Var x) env' eqenv = lookup-equiv env' eqenv x
 pe-correct (SCst x) env' eqenv = refl
 pe-correct (SSuc e) env' eqenv rewrite pe-correct e env' eqenv = refl
-pe-correct {Δ = Δ} {Γ' = Γ'} (SRec {D σ} e e₀ e₁) env' {ρ'} {ρ''} eqenv with pe-correct e env' eqenv | pe-correct e₀ env' eqenv | pe-correct e₁ env' eqenv 
-... | IA | IA₀ | IA₁ rewrite IA =
-    natrec-correct {ev (residualize e) ρ''} {Δ} {σ} {e₀} {e₁} {Γ'} {ρ'}
-      {ρ''} {env'} IA₀ IA₁
-pe-correct (SRec {SNum} e e₀ e₁) env' eqenv with pe-correct e env' eqenv | pe-correct e₀ env' eqenv | pe-correct e₁ env' eqenv 
-... | IA | IA₀ | IA₁ = cong₃ natrec IA IA₀ (ext (λ x → IA₁ refl {x} refl))
-pe-correct {Δ = Δ} {Γ' = Γ'} (SRec {SSum α α₁} e e₀ e₁) env' {ρ'} {ρ''} eqenv with pe-correct e env' eqenv | pe-correct e₀ env' eqenv | pe-correct e₁ env' eqenv 
-... | IA | IA₀ | IA₁ rewrite IA = 
-    natrec-correct-2 (ev (residualize e) ρ'') Γ' ρ' ρ'' (SSum α α₁) e₀
-      e₁ env' IA₀ IA₁
-pe-correct {Δ = Δ} {Γ' = Γ'} (SRec {SPrd α α₁} e e₀ e₁) env' {ρ'} {ρ''} eqenv with pe-correct e env' eqenv | pe-correct e₀ env' eqenv | pe-correct e₁ env' eqenv 
-... | IA | IA₀ | IA₁ rewrite IA = natrec-correct-2 (ev (residualize e) ρ'') Γ' ρ' ρ'' (SPrd α α₁) e₀
-                                    e₁ env' IA₀ IA₁
-pe-correct {Δ = Δ} {Γ' = Γ'} (SRec {SFun α α₁} e e₀ e₁) env' {ρ'} {ρ''} eqenv with pe-correct e env' eqenv | pe-correct e₀ env' eqenv | pe-correct e₁ env' eqenv
-... | IA | IA₀ | IA₁ rewrite IA = natrec-correct-2 (ev (residualize e) ρ'') Γ' ρ' ρ'' (SFun α α₁) e₀
-                                    e₁ env' IA₀ IA₁
+pe-correct {Δ = Δ} {Γ' = Γ'} (SRec {α} e e₀ e₁) env' {ρ'} {ρ''} eqenv
+  with pe-correct e env' eqenv | pe-correct e₀ env' eqenv | pe-correct e₁ env' eqenv
+... | IA | IA₀ | IA₁ rewrite IA = natrec-correct (ev (residualize e) ρ'') Γ' ρ' ρ'' α e₀ e₁ env' IA₀ IA₁
 pe-correct (SAdd e e₁) env' eqenv 
   rewrite pe-correct e env' eqenv | pe-correct e₁ env' eqenv = refl
 pe-correct (SLam e) env' eqenv = 
