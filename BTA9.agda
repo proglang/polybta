@@ -36,7 +36,7 @@ open import Lib
 data Type : Set where
   Int : Type
   Fun : Type → Type → Type
-    --pair type on the residual type level
+  --pair type on the residual type level
   _•_ : Type  → Type  → Type   
   --sum type on the residual type level
   _⊎_ : Type → Type → Type
@@ -169,7 +169,7 @@ typeof (α₁ ⊎ α₂) = typeof α₁ ⊎ typeof α₂
   --new difficulty
   ----------------
   --Consider the evaluation of the following term
-  --DAdd (DInt 1) (Lift (AAdd (AInt 2) (AInt 3))) : AExp [] AInt
+  --DAdd (DInt 1) (Lift (AAdd (AInt 2) (AInt 3))) : AExp [] (D Int)
   --the expected type after evaluation is,
   --EAdd (EInt 1) ? : Exp [] Int where ? : Exp [] Int
   --and one good candidate for "?" as,
@@ -238,11 +238,11 @@ liftE Γ↝Γ' e = elevate (↝↝-base Γ↝Γ') e
 -- lifted1 = EInt e1
 -- --case 2. higher-order static function in a dynamic environment
 -- --a. a function whose input argument is of static integer
--- --lift2 : AExp [] (AFun AInt AInt)
--- --lift2 = ALam (Var hd)
+-- lift2 : AExp [] (AFun AInt AInt)
+-- lift2 = ALam (Var hd)
 
--- --e2 : Imp [] (AFun AInt AInt)
--- --e2 = λ Γ↝Γ' x → x
+-- e2 : Imp [] (AFun AInt AInt)
+-- e2 = λ Γ↝Γ' x → x
 
 -- --lifted2 : Exp [] (typeof (AFun AInt AInt))
 -- --lifted2 = ELam {!!}
@@ -255,7 +255,7 @@ liftE Γ↝Γ' e = elevate (↝↝-base Γ↝Γ') e
 -- lift3 = ALam (Var hd)
 
 -- e3 : Imp [] (AFun (D Int) (D Int))
--- e3 =  λ Γ↝Γ' x → x
+-- e3 =  λ Γ↝Γ' x → x where x : Exp Γ' Int
 
 -- liftede3 : Exp [] (typeof (AFun (D Int) (D Int)))
 -- liftede3 = ELam (e3 (↝-extend ↝-refl) (EVar hd))
@@ -268,6 +268,13 @@ liftE Γ↝Γ' e = elevate (↝↝-base Γ↝Γ') e
 
 -- liftede4 : Exp [] (typeof (AFun (D Int) AInt))
 -- liftede4 = ELam ( EInt {Int ∷ []} (e4 (↝-extend ↝-refl) (EVar hd)))
+
+------------------------------------------------------------------------
+--note:
+--In case of lifting λ-abstraction,the following points should be noted,
+--a. input type cannot be static while output type can
+
+------------------------------------------------------------------------
 
 -- --c. a function whose input argument is of static function type
 -- --c.1. static function type returns a static integer
@@ -424,6 +431,10 @@ data AExp (Δ : ACtx) : AType → Set where
 -- main complication when defining partial evaluation as a total,
 -- primitively recursive function will be the treatment of the De
 -- Bruijn variables of non-closed residual expressions.
+
+---------------------
+--Alternative Lifting
+--------------------- 
 
 
 

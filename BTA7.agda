@@ -349,6 +349,35 @@ e9 = λ Γ↝Γ' x Γ'↝Γ'' y → liftE Γ'↝Γ'' x
 liftede9 : Exp [] (typeof ( AFun (D Int) (AFun (D Int) (D Int))))
 liftede9 =  ELam (ELam (e9 (↝-extend (↝-extend ↝-refl)) (EVar (tl hd)) ↝-refl (EVar hd)))
 
+--d. static pairs and sums in dynamic environment
+--d.1. identity function with  static sum as its input 
+lift10 : AExp [] (AFun ((D Int) ⊎ (D Int)) ((D Int) ⊎ (D Int)))
+lift10 = ALam (Var hd)
+
+e10 : Imp [] (AFun ((D Int) ⊎ (D Int)) ((D Int) ⊎ (D Int)))
+e10 =  λ Γ↝Γ' x → x
+
+
+liftede10 : Exp [] (typeof (AFun ((D Int) ⊎ (D Int)) ((D Int) ⊎ (D Int))))
+liftede10 = ELam {!e10!}
+
+--d.2. identity function with  static pair as its input 
+lift11 : AExp [] (AFun ((D Int) • (D Int)) ((D Int) • (D Int)))
+lift11 = ALam (Var hd)
+
+e11 : Imp [] (AFun ((D Int) • (D Int)) ((D Int) • (D Int)))
+e11 =  λ Γ↝Γ' x → x
+
+
+liftede11 : Exp [] (typeof (AFun ((D Int) • (D Int)) ((D Int) • (D Int))))
+liftede11 = ELam (fst (e11 (↝-extend ↝-refl) (EFst (EVar hd) , ESnd (EVar hd))) ,
+                    snd (e11 (↝-extend ↝-refl) (EFst (EVar hd) , ESnd (EVar hd))))
+
+--Note that the above two examples in section "d" clearly shows that 
+--"static functions with inputs of static sum type are not liftable
+-- while with inputs of static pair type are liftable ".
+
+
 
 ---------------------------
 --summary on liftable terms
@@ -600,7 +629,7 @@ module SimpleAEnv where
 
 
 
-
+  
 
 -- Correctness proof
 
