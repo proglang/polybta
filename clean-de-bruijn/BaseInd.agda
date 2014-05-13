@@ -12,18 +12,6 @@ data Ty : Set where
  Sum : Ty → Ty → Ty
  Prd : Ty → Ty → Ty
  
--- Values of inductive types, in U T1 T2, T1 is the top-level type, T2
--- is the type of the current node
-data U : Ty → Ty → Set where
-  InHole : ∀ T → U T T → U T Hole
-  UNIT : ∀ T → U T UNIT
-  Left : ∀ T T1 T2 → U T T1 → U T (Sum T1 T2)
-  Right : ∀ T T1 T2 → U T T2 → U T (Sum T1 T2)
-  Pair : ∀ T T1 T2 →  U T T1 → U T T2 → U T (Prd T1 T2)
-
-V : Ty → Set 
-V T = U T T
-
 data Type : Set where
   UNIT : Type
   Num : Type
@@ -61,6 +49,20 @@ data Exp (Γ : Ctx) : Type → Set where
   -- Eliminate a value of inductive type
   EFoldRec : ∀ {τ T} → Exp Γ (Ind T) → Exp Γ (Fun (fmap T τ) τ) → Exp Γ τ
 
+
+-- Values of inductive types, in U T1 T2, T1 is the top-level type, T2
+-- is the type of the current node
+data U : Ty → Ty → Set where
+  InHole : ∀ T → U T T → U T Hole
+  UNIT : ∀ T → U T UNIT
+  Left : ∀ T T1 T2 → U T T1 → U T (Sum T1 T2)
+  Right : ∀ T T1 T2 → U T T2 → U T (Sum T1 T2)
+  Pair : ∀ T T1 T2 →  U T T1 → U T T2 → U T (Prd T1 T2)
+
+V : Ty → Set 
+V T = U T T
+  
+-- Type interpretation, extended for Ind
 TInt : Type → Set
 TInt UNIT = ⊤
 TInt Num = ℕ
@@ -77,6 +79,7 @@ lookupE : ∀ { τ Γ } → τ ∈ Γ → Env Γ → TInt τ
 lookupE hd (x ∷ ρ) = x
 lookupE (tl v) (_ ∷ ρ) = lookupE v ρ
 
+
 -- Some examples for interpreting recursion, for inspiration
 natrec : ∀ { t : Set } → ℕ → ((⊤ ⊎ t) → t) → t
 natrec zero vs = vs (inj₁ tt) 
@@ -92,7 +95,6 @@ boolrec false v = v (inj₂ tt)
 listrec : ∀ {t : Set } → List ℕ → (⊤ ⊎ (ℕ × t) → t) → t
 listrec [] v = v (inj₁ tt)
 listrec (x ∷ l) v = v (inj₂ (x , listrec l v))
-
 
 -- Interpretation of Shapes given an interpreted type
 UInt : Ty → Set → Set
