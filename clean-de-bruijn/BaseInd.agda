@@ -1,6 +1,6 @@
 {- The base language with recursion on inductive types;
    simply typed lambda calculus with nats, addition, sums and products -}
-module Base where
+module BaseInd where
 open import Lib
 open import Data.Unit 
 open import Data.Bool
@@ -42,6 +42,7 @@ fmap (Prd T T₁) τ = Prd (fmap T τ) (fmap T₁ τ)
 
 data Exp (Γ : Ctx) : Type → Set where
   EVar : ∀ {τ} → τ ∈ Γ → Exp Γ τ
+  ETT : Exp Γ UNIT
   ECst : ℕ → Exp Γ Num
   ESuc : Exp Γ Num → Exp Γ Num
   ERec : ∀ {τ} → Exp Γ Num → Exp Γ (Fun (Sum UNIT τ) τ) → Exp Γ τ
@@ -133,6 +134,7 @@ lem-uint-tint (Prd T T₁) τ rewrite lem-uint-tint T τ | lem-uint-tint T₁ τ
 
 ev : ∀ {τ Γ} → Exp Γ τ → Env Γ → TInt τ
 ev (EVar v) ρ = lookupE v ρ
+ev (ETT) ρ = tt
 ev (ECst x) ρ = x
 ev (ESuc e) ρ = suc (ev e ρ)
 ev (ERec e es) ρ = natrec (ev e ρ) (ev es ρ) 
@@ -151,3 +153,47 @@ ev (EFold {T} e) ρ = ufold T (ev e ρ)
 ev (EFoldRec {τ} {T} e e₁) ρ = urec (ev e ρ) f
   where f : UInt T (TInt τ)  → TInt τ
         f v rewrite lem-uint-tint T τ = ev e₁ ρ v
+
+--------------------------
+-- Rec Examples
+------------------------
+
+-- Natural numbers:
+UNatTy : Ty
+UNatTy = Sum UNIT Hole
+
+UNat : Type
+UNat = Ind UNatTy
+
+-- zero and successor function
+
+--helper
+fromℕ : ∀ {Γ} → ℕ → Exp Γ UNat
+fromℕ = fold mzero msuc
+  where -- meta-zero and -succ
+      mzero : ∀ {Γ} → Exp Γ UNat
+      mzero = EFold (EInl ETT) 
+
+      msuc : ∀ {Γ} → Exp Γ UNat → Exp Γ UNat
+      msuc e = EFold (EInr e)
+
+ezero : ∀ {Γ} → Exp Γ UNat
+ezero = EFold (EInl ETT) 
+
+esuc : ∀ {Γ} → Exp Γ (Fun UNat UNat)
+esuc = ELam (EFold (EInr (EVar hd)))
+
+eplus : ∀ {Γ} → Exp Γ (Fun UNat (Fun UNat UNat))
+eplus = ELam (ELam (EFoldRec (EVar (tl hd)) cases))
+  where cases = ELam (ECase (EVar hd)
+                            (EVar (tl (tl hd)))    -- zero case, use e2
+                            (EApp esuc (EVar hd))) -- recursive case
+
+test-eplus : ev (EApp (EApp eplus (fromℕ 31)) (fromℕ 11)) [] ≡ ev (fromℕ 42) []
+test-eplus = refl
+
+-- TODO:
+UNatListTy : Ty
+UNatListTy = Sum UNIT (Prd UNatTy Hole)
+UNatList : Type
+UNatList = Ind UNatListTy
