@@ -40,3 +40,31 @@ predecessor = SLam (SFst (SRec (Var hd) (SPair (SCst 0) (SCst 0))
 
 pe_predecessor : ℕ → ℕ
 pe_predecessor n = pe {[]} (SApp predecessor (SCst n)) []
+
+
+iter : Exp [] (Fun (Fun Num Num) (Fun Num Num))
+iter = ELam (ELam (ERec (ESuc (EVar hd)) (ECst 1) (EVar (tl hd))))
+
+ack : Exp [ Fun (Fun Num Num) (Fun Num Num) ] (Fun Num (Fun Num Num))
+ack = ELam (ERec (EVar hd) (ELam (ESuc (EVar hd))) (EVar (tl hd)))
+
+ack-m-n : ℕ → ℕ → ℕ
+ack-m-n m n = ev (EApp (EApp ack (ECst m)) (ECst n)) (ev iter [] ∷ [])
+    
+siter : AExp [] (SFun (D (Fun Num Num)) (SFun SNum (D Num)))
+siter = SLam (SLam (SRec (SSuc (Var hd)) (DCst 1) (SLam (DApp (Var (tl (tl hd))) (Var hd)))))
+
+diter : AExp [] (SFun (D (Fun Num Num)) (D (Fun Num Num)))
+diter = SLam (DLam (DRec (DSuc (Var hd)) (DCst 1) (Var (tl hd))))
+
+sack : AExp [ D (Fun (Fun Num Num) (Fun Num Num)) ] (SFun SNum (D (Fun Num Num)))
+sack = SLam (SRec (Var hd) (DLam (DSuc (Var hd))) (SLam (DApp (Var (tl (tl hd))) (Var hd))))
+
+sack-m : ℕ → Exp [] (Fun Num Num)
+sack-m m = pe (SApp sack (SCst m)) (iter ∷ [])
+
+sack' : AExp [ SFun (D (Fun Num Num)) (D (Fun Num Num)) ] (SFun SNum (D (Fun Num Num)))
+sack' = SLam (SRec (Var hd) (DLam (DSuc (Var hd))) (Var (tl hd)))
+
+sack'-m : ℕ → Exp [] (Fun Num Num)
+sack'-m m = pe (SApp (SLam (SApp sack' (SCst m))) diter) []
