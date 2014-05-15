@@ -26,12 +26,17 @@ data Exp (Γ : Ctx) : Type → Set where
 \agdaSnippet\btaExpSumProd{
 \begin{code}
   EPair : ∀ {τ τ'} → Exp Γ τ → Exp Γ τ' → Exp Γ (Prd τ τ')
-  EFst :  ∀ {τ τ'} → Exp Γ (Prd τ τ') → Exp Γ τ
-  ESnd :  ∀ {τ τ'} → Exp Γ (Prd τ τ') → Exp Γ τ'
-  EInl :  ∀ {τ τ'} → Exp Γ τ → Exp Γ (Sum τ τ')
-  EInr :  ∀ {τ τ'} → Exp Γ τ' → Exp Γ (Sum τ τ')
+  EFst  : ∀ {τ τ'} → Exp Γ (Prd τ τ') → Exp Γ τ
+  ESnd  : ∀ {τ τ'} → Exp Γ (Prd τ τ') → Exp Γ τ'
+  EInl  : ∀ {τ τ'} → Exp Γ τ → Exp Γ (Sum τ τ')
+  EInr  : ∀ {τ τ'} → Exp Γ τ' → Exp Γ (Sum τ τ')
   ECase : ∀ {τ τ' τ''} → Exp Γ (Sum τ τ') →
           Exp (τ ∷ Γ) τ'' → Exp (τ' ∷ Γ) τ'' → Exp Γ τ''
+\end{code}}
+\agdaSnippet\btaExpRec{
+\begin{code}
+  ERec  : ∀ {τ} → Exp Γ Num → 
+                  Exp Γ τ → Exp Γ (Fun τ τ) → Exp Γ τ
 \end{code}}
 \agdaIgnore{
 \begin{code}
@@ -53,7 +58,15 @@ data Env : Ctx → Set where
 lookupE : ∀ { τ Γ } → τ ∈ Γ → Env Γ → TInt τ
 lookupE hd (x ∷ ρ) = x
 lookupE (tl v) (_ ∷ ρ) = lookupE v ρ
-
+\end{code}}
+\agdaSnippet\btaNatrec{
+\begin{code}
+natrec : ∀ { t : Set } → ℕ → t → (t → t) → t
+natrec zero v0 vs = v0
+natrec (suc n) v0 vs = vs (natrec n v0 vs)
+\end{code}}
+\agdaIgnore{
+\begin{code}
 ev : ∀ {τ Γ} → Exp Γ τ → Env Γ → TInt τ
 ev (EVar v) ρ = lookupE v ρ
 ev (ECst x) ρ = x
@@ -68,4 +81,8 @@ ev (EInr e) ρ = inj₂ (ev e ρ)
 ev (ECase e e₁ e₂) ρ with ev e ρ
 ... | inj₁ v = ev e₁ (v ∷ ρ)
 ... | inj₂ v = ev e₂ (v ∷ ρ)
+\end{code}}
+\agdaSnippet\btaEvalRec{
+\begin{code}
+ev (ERec eₙ e₀ eₛ) ρ = natrec (ev eₙ ρ) (ev e₀ ρ) (ev eₛ ρ)
 \end{code}}

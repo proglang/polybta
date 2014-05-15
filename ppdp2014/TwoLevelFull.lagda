@@ -57,10 +57,12 @@ mutual
 data AExp (Δ : ACtx) : AType → Set where
   Var : ∀ {α} → α ∈ Δ → AExp Δ α
   SCst : ℕ → AExp Δ SNum
+  SRec : ∀ {α} → AExp Δ SNum → AExp Δ α → AExp Δ (SFun α α) → AExp Δ α
   SAdd : AExp Δ SNum → AExp Δ SNum → AExp Δ SNum
   SLam : ∀ {α₁ α₂} → AExp (α₁ ∷ Δ) α₂ → AExp Δ (SFun α₁ α₂)
   SApp : ∀ {α₁ α₂} → AExp Δ (SFun α₁ α₂) → AExp Δ α₁ → AExp Δ α₂
   DCst : ℕ → AExp Δ (D Num)
+  DRec : ∀ {σ} → AExp Δ (D Num) → AExp Δ (D σ) → AExp Δ (D (Fun σ σ)) → AExp Δ (D σ)
   DAdd : AExp Δ (D Num) → AExp Δ (D Num) → AExp Δ (D Num)
   DLam : ∀ {σ₁ σ₂} → AExp ((D σ₁) ∷ Δ) (D σ₂) → AExp Δ (D (Fun σ₁ σ₂))
   DApp : ∀ {σ₁ σ₂} → AExp Δ (D (Fun σ₂ σ₁)) → AExp Δ (D σ₂) → AExp Δ (D σ₁)
@@ -123,6 +125,7 @@ elevate Γ↝Γ'↝Γ'' (EInr e) = EInr (elevate Γ↝Γ'↝Γ'' e)
 elevate Γ↝Γ'↝Γ'' (EFst e) = EFst (elevate Γ↝Γ'↝Γ'' e)
 elevate Γ↝Γ'↝Γ'' (ESnd e) = ESnd (elevate Γ↝Γ'↝Γ'' e)
 elevate Γ↝Γ'↝Γ'' (ECase c e₁ e₂) = ECase (elevate Γ↝Γ'↝Γ'' c) (elevate (extend Γ↝Γ'↝Γ'') e₁) (elevate (extend Γ↝Γ'↝Γ'') e₂)
+elevate Γ↝Γ'↝Γ'' (ERec eₙ e₀ eₛ) = ERec (elevate Γ↝Γ'↝Γ'' eₙ) (elevate Γ↝Γ'↝Γ'' e₀) (elevate Γ↝Γ'↝Γ'' eₛ)
 exp↑ : ∀ {τ τ' Γ} → Exp Γ τ' → Exp (τ ∷ Γ) τ'
 exp↑ e = elevate (refl (extend refl)) e
 
@@ -150,23 +153,23 @@ lookup (tl x) (_ ∷ ρ) = lookup x ρ
 \end{code}}
 \agdaSnippet\btaLiftImpl{
 \begin{code}
-mutual 
-  lift : ∀ {Γ α} → Liftable α → ATInt Γ α → (Exp Γ (erase α))
-  lift (D τ) v = v
-  lift SCst v = ECst v
-  lift (SSum ty ty₁) (inj₁ a) = EInl (lift ty a)
-  lift (SSum ty ty₁) (inj₂ b) = EInr (lift ty₁ b)
-  lift (SPrd ty ty₁) (v1 , v2) = EPair (lift ty v1) (lift ty₁ v2)
-  lift (SFun {α₁} ty₁ ty₂) f =
-    ELam let x = (embed ty₁ (EVar hd)) in
-         lift ty₂ (f (extend refl) x)
+lift : ∀ {Γ α} → Liftable α → ATInt Γ α → (Exp Γ (erase α))
+embed : ∀ {Γ α} →
+  Liftable⁻ α → Exp Γ (erase α) → (ATInt Γ α)
 
-  embed : ∀ {Γ α} →
-    Liftable⁻ α → Exp Γ (erase α) → (ATInt Γ α)
-  embed (D τ) e = e
-  embed (SPrd ty ty₁) e = embed ty (EFst e) , embed ty₁ (ESnd e)
-  embed {Γ} (SFun {α} ty₁ ty₂) e = 
-    λ Γ↝Γ' v₁ → embed ty₂ (EApp (int↑ Γ↝Γ' e) (lift ty₁ v₁))
+lift (D τ) v = v
+lift SCst v = ECst v
+lift (SSum ty ty₁) (inj₁ a) = EInl (lift ty a)
+lift (SSum ty ty₁) (inj₂ b) = EInr (lift ty₁ b)
+lift (SPrd ty ty₁) (v1 , v2) = EPair (lift ty v1) (lift ty₁ v2)
+lift (SFun {α₁} ty₁ ty₂) f =
+  ELam let x = (embed ty₁ (EVar hd)) in
+       lift ty₂ (f (extend refl) x)
+
+embed (D τ) e = e
+embed (SPrd ty ty₁) e = embed ty (EFst e) , embed ty₁ (ESnd e)
+embed {Γ} (SFun {α} ty₁ ty₂) e = 
+  λ Γ↝Γ' v₁ → embed ty₂ (EApp (int↑ Γ↝Γ' e) (lift ty₁ v₁))
 \end{code}}
 \agdaIgnore{
 \begin{code}
@@ -176,10 +179,18 @@ pe : ∀ { Γ Δ α } →
 pe (Var x) ρ       = lookup x ρ
 pe (DLam e) ρ      = ELam (pe e (addFresh ρ))
 pe (SApp f e) ρ    = (pe f ρ) refl (pe e ρ)
-pe (SLam {α} e) ρ  = λ Γ↝Γ' x → pe e (x ∷ env↑ Γ↝Γ' ρ)
+pe (SLam e) ρ  = λ Γ↝Γ' x → pe e (x ∷ env↑ Γ↝Γ' ρ)
 pe (DApp f e) ρ    = EApp (pe f ρ) (pe e ρ)
 pe (SCst x) _      = x
 pe (DCst x) _      = ECst x
+\end{code}}
+\agdaSnippet\btaPeRec{
+\begin{code}
+pe (SRec eₙ e₀ eₛ) ρ = natrec (pe eₙ ρ) (pe e₀ ρ) (pe eₛ ρ refl)
+pe (DRec eₙ e₀ eₛ) ρ = ERec (pe eₙ ρ) (pe e₀ ρ) (pe eₛ ρ)
+\end{code}}
+\agdaIgnore{
+\begin{code}
 pe (SAdd e f) ρ    = (pe e ρ) + (pe f ρ) 
 pe (DAdd e f) ρ    = EAdd (pe e ρ) (pe f ρ) 
 pe (SPair e e₁) ρ = pe e ρ , pe e₁ ρ

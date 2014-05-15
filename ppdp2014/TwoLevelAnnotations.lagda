@@ -32,9 +32,13 @@ mutual
   data BType : Set where
     BNum : BType
     BFun : AType' → AType' → BType
+\end{code}}
+\agdaIgnore{
+\begin{code}
     BPrd : AType' → AType' → BType 
     BSum : AType' → AType' → BType 
-\end{code}}
+\end{code}
+\end{agdaIgnore}}
 \agdaSnippet\btaATypeWft{
 \begin{code}
 _≼_ : BT → AType' → Set
@@ -44,6 +48,9 @@ data wft : AType' → Set where
   wf-num : ∀ {β} → wft (an β BNum)
   wf-fun : ∀ {β} {α₁ α₂} → wft α₁ → wft α₂ 
            → β ≼ α₁ → β ≼ α₂ → wft (an β (BFun α₁ α₂))
+\end{code}}
+\agdaIgnore{
+\begin{code}
   wf-prd : ∀ {β} {α₁ α₂} → wft α₁ → wft α₂ 
            → β ≼ α₁ → β ≼ α₂ → wft (an β (BPrd α₁ α₂))  
   wf-sum : ∀ {β} {α₁ α₂} → wft α₁ → wft α₂ 

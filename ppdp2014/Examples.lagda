@@ -4,7 +4,6 @@ module Examples where
 open import Lib
 open import Base
 open import TwoLevel
-open import Data.Product hiding (map)
 open import Data.Empty
 open import CtxExtension
 
@@ -34,7 +33,7 @@ ex0-spec =
 ATInt₀ : Ctx → AType → Set
 ATInt₀ _ SNum   = ℕ
 ATInt₀ Γ (D τ)  = Exp Γ τ 
-ATInt₀ _ _      = ⊥ 
+ATInt₀ _ _      = ⊥
 \end{code}}
 \agdaSnippet\btaAEnvZero{
 \begin{code}
@@ -48,17 +47,17 @@ data AEnv0 (Γ : Ctx) : ACtx → Set where
 AEnv05 : Set
 AEnv05 = List (∃₂ λ α Γ → ATInt₀ Γ α)
 \end{code}}
-\agdaSnippet\btaAEnvZeroSeven{
+\agdaSnippet\btaAEnvZeroSimple{
 \begin{code}
-data AEnv07 : ACtx → Set where
-  [] : AEnv07 []
+data AEnv0Simple : ACtx → Set where
+  [] : AEnv0Simple []
   _∷_ : ∀ {α Γ Δ} →
-        ATInt₀ Γ α → AEnv07 Δ → AEnv07 (α ∷ Δ)
+        ATInt₀ Γ α → AEnv0Simple Δ → AEnv0Simple (α ∷ Δ)
 
-lookup07 : ∀ {α Δ} →
-           α ∈ Δ → AEnv07 Δ → ∃ λ Γ → ATInt₀ Γ α
-lookup07 hd (x ∷ _)      = _ , x
-lookup07 (tl x) (_ ∷ ρ)  = lookup07 x ρ
+lookup0Simple : ∀ {α Δ} →
+           α ∈ Δ → AEnv0Simple Δ → ∃ λ Γ → ATInt₀ Γ α
+lookup0Simple hd (x ∷ _)      = _ , x
+lookup0Simple (tl x) (_ ∷ ρ)  = lookup0Simple x ρ
 \end{code}}
 \agdaSnippet\btaLookupZero{
 \begin{code}
@@ -70,8 +69,7 @@ lookup0 (tl x) (_ ∷ ρ)  = lookup0 x ρ
 \begin{code}
 int↑0 : ∀ {α τ' Γ} → ATInt₀ Γ α → ATInt₀ (τ' ∷ Γ) α
 int↑0 {D τ} (EVar x) = EVar (tl x)
-int↑0 _ = ignore
-  where postulate ignore : _
+int↑0 _ = {!!}
 \end{code}}
 \agdaSnippet\btaShiftEnvZero{
 \begin{code}
@@ -83,24 +81,33 @@ env↑0 (x ∷ env) = int↑0 x ∷ env↑0 env
 \begin{code}
 addFresh0 : ∀ {τ Γ Δ} → AEnv0 Γ Δ → AEnv0 (τ ∷ Γ) (D τ ∷ Δ)
 addFresh0 ρ = EVar hd ∷ env↑0 ρ
+
+module Pe0 where
 \end{code}}
 \agdaSnippet\btaPeZeroSig{
 \begin{code}
-pe0 : ∀ {α Γ Δ} → AExp Δ α → AEnv0 Γ Δ → ATInt₀ Γ α
+  pe0 : ∀ {α Δ} → let Γ = map erase Δ in
+    AExp Δ α → AEnv0 Γ Δ → ATInt₀ Γ α
 \end{code}}
 \agdaSnippet\btaPeZero{
 \begin{code}
-pe0 (SCst x)      ρ = x
-pe0 (DCst x)      ρ = ECst x
-pe0 (SAdd e f)    ρ = (pe0 e ρ) + (pe0 f ρ) 
-pe0 (DAdd e f)    ρ = EAdd (pe0 e ρ) (pe0 f ρ) 
-pe0 (Lift e)      ρ = ECst (pe0 e ρ)
-pe0 (DLam {τ} e)  ρ = ELam (pe0 e (addFresh0 ρ))
-pe0 (DApp f e)    ρ = EApp (pe0 f ρ) (pe0 e ρ)
-pe0 {D τ} (Var x)  ρ = lookup0 x ρ
-pe0 _             ρ = ignore
-  where postulate ignore : _
+  pe0 (SCst x)      ρ = x
+  pe0 (DCst x)      ρ = ECst x
+  pe0 (SAdd e f)    ρ = (pe0 e ρ) + (pe0 f ρ) 
+  pe0 (DAdd e f)    ρ = EAdd (pe0 e ρ) (pe0 f ρ) 
+  pe0 (Lift e)      ρ = ECst (pe0 e ρ)
+  pe0 (DLam {τ} e)  ρ = ELam (pe0 e (addFresh0 ρ))
+  pe0 (DApp f e)    ρ = EApp (pe0 f ρ) (pe0 e ρ)
+  pe0 {D τ} (Var x)  ρ = lookup0 x ρ
+  pe0 _             ρ = {!!} 
 \end{code}}
+\agdaIgnore{
+\begin{code}
+
+  check-ex0 : pe0 ex0 [] ≡ ex0-spec
+  check-ex0 = refl
+\end{code}
+}
 \agdaSnippet\btaExOne{
 \begin{code}
 ex1 : AExp [] (D (Fun Num (Fun Num Num)))
@@ -135,8 +142,7 @@ inject {D Num} (ECst n)  = (ECst n)
 inject {D Num} (EAdd e f)  = EAdd (inject e)
                                      (inject f)
 inject {SFun α α₁} v  = (λ x → inject (v (inject x)))
-inject  _                = ignore
-  where postulate ignore : _
+inject  _                = {!!} 
 \end{code}}
 \agdaIgnore{
 \begin{code}
@@ -157,34 +163,6 @@ elevate Γ↝Γ'↝Γ'' (ELam e) = ELam (elevate (extend Γ↝Γ'↝Γ'') e)
 elevate Γ↝Γ'↝Γ'' (EApp e e₁) = EApp (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
 
 
--- mutual 
-
-  -- -- Does not work... we would have to infer the smallest
-  -- -- environment in which to type an Exp term
-
-  -- inject↑ : ∀ {α Γ' Γ Γ₀} → Γ ↝ Γ₀ ↝ Γ' → ATInt₁ Γ α → ATInt₁ Γ' α
-  -- inject↑ {SNum} Γ₀ n            = n
-  -- inject↑ {SFun α₁ α₂} Γ₀ v  = (λ x → inject↑ Γ₀ (v (inject↓ Γ₀ x)))
-  -- inject↑ {D _} Γ₀ e = elevate Γ₀ e
-  -- inject↑  _ _       = ignore -- only products and sums
-  --   where postulate ignore : _
-  -- inject↓ : ∀ {α Γ' Γ Γ₀} → Γ ↝ Γ₀ ↝ Γ' → ATInt₁ Γ' α → ATInt₁ Γ α
-  -- inject↓ {SNum} Γ₁ v = v
-  -- inject↓ {SFun α α₁} Γ₁ v = λ x → inject↓ Γ₁ (v (inject↑ Γ₁ x))
-  -- inject↓ {D Num} Γ₀ (ECst n)  = (ECst n)
-  -- inject↓ {D Num} Γ₀ (EAdd e f)  = EAdd (inject↓ Γ₀ e)
-  --                                       (inject↓ Γ₀ f)
-  -- inject↓ {D (Fun τ₁ τ₂)} Γ₀ (ELam e) = ELam (inject↓ (extend Γ₀) e)
-  -- inject↓ {D _} Γ₁ (EApp f e) = EApp (inject↓ Γ₁ f) (inject↓ Γ₁ e)
-  -- inject↓ {D _} Γ₁ (EVar x) = {!!}
-  -- inject↑ {D (Fun τ₁ τ₂)} Γ₀ (ELam e) = ELam (inject↑ (extend Γ₀) e)
-  -- inject↓ {D Num} Γ₁ v = {!!}
-  -- inject↓ {D Num} Γ₁ v = {!!}
-  -- inject↓ {D _} Γ₁ ( = {!!}
-  -- inject↓ {SPrd α α₁} Γ₁ v = ignore
-  --   where postulate ignore : _
-  -- inject↓ {SSum α α₁} Γ₁ v = ignore
-  --   where postulate ignore : _
 \end{code}}
 \agdaSnippet\btaShiftExp{
 \begin{code}
@@ -200,8 +178,7 @@ exp↑ e = elevate (refl (extend refl)) e
 \begin{code}
 int↑₁ : ∀ {α τ' Γ} → ATInt₁ Γ α → ATInt₁ (τ' ∷ Γ) α
 int↑₁ {D τ} e = exp↑ e
-int↑₁ _ = ignore
-  where postulate ignore : _
+int↑₁ _ = {!!}
 \end{code}}
 \agdaSnippet\btaShiftEnvOne{
 \begin{code}
@@ -227,31 +204,42 @@ addValue1 : ∀ {α Γ Δ} → ATInt₁ Γ α → AEnv1 Γ Δ → AEnv1 Γ (α �
 addValue1 v ρ = v ∷ ρ
 \end{code}
 }
+\agdaIgnore{
+\begin{code}
+module Pe1 where
+\end{code}
+}
 \agdaSnippet\btaPeOneSig{
 \begin{code}
-pe1 : ∀ {Γ Δ α} → 
-         AExp Δ α → AEnv1 Γ Δ → ATInt₁ Γ α
+  pe1 : ∀ {Γ Δ α} → 
+          AExp Δ α → AEnv1 Γ Δ → ATInt₁ Γ α
 \end{code}}
 \agdaSnippet\btaPeOne{
 \begin{code}
-pe1 (Var x) ρ       = lookup1 x ρ
-pe1 (DLam e) ρ      = ELam (pe1 e (addFresh1 ρ))
+  pe1 (Var x) ρ       = lookup1 x ρ
+  pe1 (DLam e) ρ      = ELam (pe1 e (addFresh1 ρ))
 \end{code}
 }
 \agdaSnippet\btaPeOneStatic{
 \begin{code}
-pe1 (SApp f e) ρ    = (pe1 f ρ) (pe1 e ρ)
-pe1 (SLam {α} e) ρ  = λ x → pe1 e (x ∷ ρ)
+  pe1 (SApp f e) ρ    = (pe1 f ρ) (pe1 e ρ)
+  pe1 (SLam {α} e) ρ  = λ x → pe1 e (x ∷ ρ)
 \end{code}
 }
 \agdaIgnore{
 \begin{code}
-pe1 (DApp f e) ρ        = EApp (pe1 f ρ) (pe1 e ρ)
-pe1 (SCst x) _      = x
-pe1 (DCst x) _      = ECst x
-pe1 (SAdd e f) ρ    = (pe1 e ρ) + (pe1 f ρ) 
-pe1 (DAdd e f) ρ    = EAdd (pe1 e ρ) (pe1 f ρ) 
-pe1 (Lift e) ρ      = ECst (pe1 e ρ)
+  pe1 (DApp f e) ρ    = EApp (pe1 f ρ) (pe1 e ρ)
+  pe1 (SCst x) _      = x
+  pe1 (DCst x) _      = ECst x
+  pe1 (SAdd e f) ρ    = (pe1 e ρ) + (pe1 f ρ) 
+  pe1 (DAdd e f) ρ    = EAdd (pe1 e ρ) (pe1 f ρ) 
+  pe1 (Lift e) ρ      = ECst (pe1 e ρ)
+\end{code}
+}
+\agdaIgnore{
+\begin{code}
+  check-ex1 : pe1 ex1 [] ≡ (ex1-spec)
+  check-ex1 = refl
 \end{code}
 }
 \agdaSnippet\btaImp{
@@ -302,7 +290,7 @@ pe : ∀ {Γ Δ α} → AExp Δ α → AEnv Γ Δ → ATInt Γ α
 pe (SCst x) _      = x
 pe (SAdd e f) ρ    = (pe e ρ) + (pe f ρ) 
 pe (Var x) ρ       = lookup x ρ
-pe (SLam {α} e) ρ  = λ Γ↝Γ' x → pe e (x ∷ env↑ Γ↝Γ' ρ)
+pe (SLam e) ρ      = λ Γ↝Γ' x → pe e (x ∷ env↑ Γ↝Γ' ρ)
 pe (SApp f e) ρ    = (pe f ρ) refl (pe e ρ)
 pe (Lift e) ρ      = ECst (pe e ρ)
 pe (DCst x) _      = ECst x
@@ -323,13 +311,46 @@ ex2-spec = ELam (ELam (EAdd (EVar (tl hd)) (EVar (tl hd))))
 
 \agdaIgnore{
 \begin{code}
-check-ex0 : pe0 ex0 [] ≡ ex0-spec
-check-ex0 = refl
-
-check-ex1 : pe1 ex1 [] ≡ (ex1-spec)
-check-ex1 = refl
 
 check-ex2 : pe ex2 [] ≡ (ex2-spec)
 check-ex2 = refl
+\end{code}}
+
+\agdaIgnore{
+\begin{code}
+module ExamplesSignatures where
+\end{code}}
+\agdaSnippet\btaPeZeroReturnType{
+\begin{code}
+  pe0 : ∀ {α Δ} → let Γ = map erase Δ in
+        AExp Δ α → {!!} → ATInt₀ Γ α
+\end{code}}
+\agdaIgnore{
+\begin{code}
+  pe0 e ρ = {!!}
+\end{code}}
+\agdaSnippet\btaPeOneWrong{
+\begin{code}
+  pe1 : ∀ { Δ α } → let Γ = map erase Δ in
+           AExp Δ α → AEnv1 Γ Δ → ATInt₁ Γ α
+  pe1 (SApp f e) ρ    = (pe1 f ρ) (pe1 e ρ)
+  pe1 (SLam {α} e) ρ  = λ x → {!pe1 e (x ∷ ρ)!} 
+\end{code}
+}
+\agdaIgnore{
+\begin{code}
+  pe1 _ _ = ignore
+    where postulate ignore : _
+\end{code}}
+
+\agdaSnippet\btaShiftPrime{
+\begin{code}
+  int↑₂ : ∀ {α Γ τ} → ATInt₁ Γ α → ATInt₁ (τ ∷ Γ) α
+  int↑₂ {D τ}  e = exp↑ e
+  int↑₂ {SNum} v = v
+  int↑₂ {SFun α₁ α₂} {Γ} {τ} f = f' 
+    where
+      f' : ATInt₁ (τ ∷ Γ) α₁ → ATInt₁ (τ ∷ Γ) α₂
+      f' x = {!!} 
 \end{code}}
 

@@ -3,7 +3,7 @@ module Lib where
 open import Data.Nat public hiding (_<_) 
 open import Function public using (_∘_)
 open import Data.List public 
-open import Data.Product public using (_×_ ; _,_ ; proj₁ ; proj₂ ; Σ ; ∃)
+open import Data.Product public using (_×_ ; _,_ ; proj₁ ; proj₂ ; Σ ; ∃; ∃₂)
 open import Data.Sum public using (_⊎_ ; [_,_]′ ; inj₁ ; inj₂)
 open import Relation.Nullary public
 open import Relation.Binary.PropositionalEquality public hiding ([_])
@@ -24,3 +24,8 @@ mapIdx : {A B : Set} → (f : A → B) →
 mapIdx f hd = hd
 mapIdx f (tl x₁) = tl (mapIdx f x₁)
 
+
+cong₃ : ∀ {a b c d} {A : Set a} {B : Set b} {C : Set c} {D : Set d}
+  (f : A → B → C → D) {xa ya xb yb xc yc} →
+  xa ≡ ya → xb ≡ yb → xc ≡ yc → f xa xb xc ≡ f ya yb yc
+cong₃ f refl refl refl = refl
