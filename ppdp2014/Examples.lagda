@@ -81,9 +81,12 @@ env↑0 (x ∷ env) = int↑0 x ∷ env↑0 env
 \begin{code}
 addFresh0 : ∀ {τ Γ Δ} → AEnv0 Γ Δ → AEnv0 (τ ∷ Γ) (D τ ∷ Δ)
 addFresh0 ρ = EVar hd ∷ env↑0 ρ
-
-module Pe0 where
 \end{code}}
+\agdaIgnore{
+\begin{code}
+module Pe0 where
+\end{code}
+}
 \agdaSnippet\btaPeZeroSig{
 \begin{code}
   pe0 : ∀ {α Δ} → let Γ = map erase Δ in

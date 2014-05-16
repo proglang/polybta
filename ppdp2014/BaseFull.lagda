@@ -20,6 +20,7 @@ data Exp (Γ : Ctx) : Type → Set where
   EVar : ∀ {τ} → τ ∈ Γ → Exp Γ τ
   ECst : ℕ → Exp Γ Num
   EAdd : Exp Γ Num → Exp Γ Num → Exp Γ Num
+  ESuc : Exp Γ Num → Exp Γ Num
   ELam : ∀ {τ τ'} → Exp (τ ∷ Γ) τ' → Exp Γ (Fun τ τ')
   EApp : ∀ {τ τ'} → Exp Γ (Fun τ τ') → Exp Γ τ → Exp Γ τ'
 \end{code}}
@@ -70,6 +71,7 @@ natrec (suc n) v0 vs = vs (natrec n v0 vs)
 ev : ∀ {τ Γ} → Exp Γ τ → Env Γ → TInt τ
 ev (EVar v) ρ = lookupE v ρ
 ev (ECst x) ρ = x
+ev (ESuc e) ρ = suc (ev e ρ)
 ev (EAdd e f) ρ = ev e ρ + ev f ρ
 ev (ELam e) ρ = λ x → ev e (x ∷ ρ)
 ev (EApp e f) ρ = ev e ρ (ev f ρ)

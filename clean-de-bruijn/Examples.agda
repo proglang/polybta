@@ -68,3 +68,63 @@ sack' = SLam (SRec (Var hd) (DLam (DSuc (Var hd))) (Var (tl hd)))
 
 sack'-m : ℕ → Exp [] (Fun Num Num)
 sack'-m m = pe (SApp (SLam (SApp sack' (SCst m))) diter) []
+
+---------------------------------------------------
+-- TODO: examples for higher order lifting
+---------------------------------------------------
+open import Data.Empty
+
+-- a decidable Liftable may help in constructing the proofs... Lu
+-- doesn't know how yet (Reflection? smart constructors? both?)
+lift-dec : (α : AType) → Dec (Liftable α)
+lift-dec⁻ : (α : AType) → Dec (Liftable⁻ α)
+
+lift-dec SNum = yes SCst
+lift-dec (SFun α α₁) with lift-dec⁻ α | lift-dec α₁
+... | yes lm | yes l = yes (SFun lm l)
+... | no  nlm | _   = no f
+  where f : (x : Liftable (SFun α α₁)) → ⊥
+        f (SFun x₁ x₂) = nlm x₁
+... |  _ | no nl = no f
+  where f : (x : Liftable (SFun α α₁)) → ⊥
+        f (SFun x₁ x₂) = nl x₂
+lift-dec (SPrd α α₁) with lift-dec α | lift-dec α₁
+... | yes lm | yes l = yes (SPrd lm l)
+... | no  nlm | _   = no f
+  where f : (x : Liftable (SPrd α α₁)) → ⊥
+        f (SPrd x₁ x₂) = nlm x₁
+... |  _ | no nl = no f
+  where f : (x : Liftable (SPrd α α₁)) → ⊥
+        f (SPrd x₁ x₂) = nl x₂
+lift-dec (SSum α α₁) with lift-dec α | lift-dec α₁
+... | yes lm | yes l = yes (SSum lm l)
+... | no  nlm | _   = no f
+  where f : (x : Liftable (SSum α α₁)) → ⊥
+        f (SSum x₁ x₂) = nlm x₁
+... |  _ | no nl = no f
+  where f : (x : Liftable (SSum α α₁)) → ⊥
+        f (SSum x₁ x₂) = nl x₂
+lift-dec (D x) = yes (D x)
+lift-dec⁻ SNum = no (λ ())
+lift-dec⁻ (SFun α α₁) with lift-dec α | lift-dec⁻ α₁
+... | yes lm | yes l = yes (SFun lm l)
+... | no  nlm | _   = no f
+  where f : (x : Liftable⁻ (SFun α α₁)) → ⊥
+        f (SFun x₁ x₂) = nlm x₁
+... |  _ | no nl = no f
+  where f : (x : Liftable⁻ (SFun α α₁)) → ⊥
+        f (SFun x₁ x₂) = nl x₂
+lift-dec⁻ (SPrd α α₁) with lift-dec⁻ α | lift-dec⁻ α₁
+... | yes lm | yes l = yes (SPrd lm l)
+... | no  nlm | _   = no f
+  where f : (x : Liftable⁻ (SPrd α α₁)) → ⊥
+        f (SPrd x₁ x₂) = nlm x₁
+... |  _ | no nl = no f
+  where f : (x : Liftable⁻ (SPrd α α₁)) → ⊥
+        f (SPrd x₁ x₂) = nl x₂
+lift-dec⁻ (SSum α α₁) = no (λ ())
+lift-dec⁻ (D x) = yes (D x)
+
+try-lift : ∀ {α Γ} → AExp Γ α → Dec (Liftable α)
+try-lift {α} _ = lift-dec α 
+

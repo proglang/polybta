@@ -57,11 +57,13 @@ mutual
 data AExp (Δ : ACtx) : AType → Set where
   Var : ∀ {α} → α ∈ Δ → AExp Δ α
   SCst : ℕ → AExp Δ SNum
+  SSuc : AExp Δ SNum → AExp Δ SNum
   SRec : ∀ {α} → AExp Δ SNum → AExp Δ α → AExp Δ (SFun α α) → AExp Δ α
   SAdd : AExp Δ SNum → AExp Δ SNum → AExp Δ SNum
   SLam : ∀ {α₁ α₂} → AExp (α₁ ∷ Δ) α₂ → AExp Δ (SFun α₁ α₂)
   SApp : ∀ {α₁ α₂} → AExp Δ (SFun α₁ α₂) → AExp Δ α₁ → AExp Δ α₂
   DCst : ℕ → AExp Δ (D Num)
+  DSuc : AExp Δ (D Num) → AExp Δ (D Num)
   DRec : ∀ {σ} → AExp Δ (D Num) → AExp Δ (D σ) → AExp Δ (D (Fun σ σ)) → AExp Δ (D σ)
   DAdd : AExp Δ (D Num) → AExp Δ (D Num) → AExp Δ (D Num)
   DLam : ∀ {σ₁ σ₂} → AExp ((D σ₁) ∷ Δ) (D σ₂) → AExp Δ (D (Fun σ₁ σ₂))
@@ -116,6 +118,7 @@ elevate-var2 (extend Γ↝Γ'↝Γ'') (tl x) = tl (elevate-var2 Γ↝Γ'↝Γ'' 
 elevate : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → Exp Γ τ → Exp Γ'' τ
 elevate Γ↝Γ'↝Γ'' (EVar x) = EVar (elevate-var2 Γ↝Γ'↝Γ'' x)
 elevate Γ↝Γ'↝Γ'' (ECst x) = ECst x
+elevate Γ↝Γ'↝Γ'' (ESuc e) = ESuc (elevate Γ↝Γ'↝Γ'' e)
 elevate Γ↝Γ'↝Γ'' (EAdd e e₁) = EAdd (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
 elevate Γ↝Γ'↝Γ'' (ELam e) = ELam (elevate (extend Γ↝Γ'↝Γ'') e)
 elevate Γ↝Γ'↝Γ'' (EApp e e₁) = EApp (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
@@ -183,6 +186,8 @@ pe (SLam e) ρ  = λ Γ↝Γ' x → pe e (x ∷ env↑ Γ↝Γ' ρ)
 pe (DApp f e) ρ    = EApp (pe f ρ) (pe e ρ)
 pe (SCst x) _      = x
 pe (DCst x) _      = ECst x
+pe (SSuc e) ρ      = suc (pe e ρ)
+pe (DSuc e) ρ      = ESuc (pe e ρ)
 \end{code}}
 \agdaSnippet\btaPeRec{
 \begin{code}

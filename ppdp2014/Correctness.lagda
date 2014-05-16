@@ -17,11 +17,13 @@ residualize : ∀ {α Δ} → AExp Δ α → Exp (map erase Δ) (erase α)
 \begin{code}
 residualize (Var x) = EVar (mapIdx erase  x)
 residualize (SCst x) = ECst x
+residualize (SSuc e) = ESuc (residualize e)
 residualize (SRec eₙ e₀ eₛ) = ERec (residualize eₙ) (residualize e₀) (residualize eₛ)
 residualize (SAdd e e₁) = EAdd (residualize e) (residualize e₁)
 residualize (SLam e) = ELam (residualize e)
 residualize (SApp e e₁)  = EApp (residualize e) (residualize e₁)
 residualize (DCst x)  = ECst x
+residualize (DSuc e) = ESuc (residualize e)
 residualize (DAdd e e₁) = EAdd (residualize e) (residualize e₁)
 residualize (DRec eₙ e₀ eₛ) = ERec (residualize eₙ) (residualize e₀) (residualize eₛ)
 residualize (DLam e)  = ELam (residualize e)
@@ -170,6 +172,8 @@ elevate-≡ : ∀ {τ Γ Γ' Γ''}
                   ev e ρ ≡ ev (elevate Γ↝Γ'↝Γ'' e) ρ''
 elevate-≡ ρ↝ρ' (EVar x) = lookup-elevate2-≡ ρ↝ρ' x
 elevate-≡ ρ↝ρ' (ECst x) = refl
+elevate-≡ ρ↝ρ' (ESuc e) with elevate-≡ ρ↝ρ' e
+... | IA = cong suc IA
 elevate-≡ ρ↝ρ' (ERec e e₀ e₁) with elevate-≡ ρ↝ρ' e | elevate-≡ ρ↝ρ' e₀ | elevate-≡ ρ↝ρ' e₁
 ... | IA | IA₀ | IA₁ = cong₃ natrec IA IA₀ IA₁
 elevate-≡ ρ↝ρ' (EAdd e e₁) with elevate-≡ ρ↝ρ' e | elevate-≡ ρ↝ρ' e₁
@@ -331,6 +335,7 @@ pe-correct : ∀ { α Δ Γ' } →
 \begin{code}
 pe-correct (Var x) env' eqenv = lookup-equiv env' eqenv x
 pe-correct (SCst x) env' eqenv = refl
+pe-correct (SSuc e) env' eqenv rewrite pe-correct e env' eqenv = refl
 pe-correct {Δ = Δ} {Γ' = Γ'} (SRec {α} e e₀ e₁) env' {ρ'} {ρ''} eqenv
   with pe-correct e env' eqenv | pe-correct e₀ env' eqenv | pe-correct e₁ env' eqenv
 ... | IA | IA₀ | IA₁ rewrite IA = natrec-correct (ev (residualize e) ρ'') Γ' ρ' ρ'' α e₀ e₁ env' IA₀ IA₁
@@ -347,6 +352,7 @@ pe-correct (SApp e e₁) env' eqenv
   with pe-correct e env' eqenv | pe-correct e₁ env' eqenv
 ... | IAe | IAf = IAe (refl) IAf
 pe-correct (DCst x) env' eqenv = refl
+pe-correct (DSuc e) env' eqenv rewrite pe-correct e env' eqenv = refl
 pe-correct (DRec e e₀ e₁) env' eqenv rewrite pe-correct e env' eqenv | pe-correct e₀ env' eqenv | pe-correct e₁ env' eqenv = refl
 pe-correct (DAdd e e₁) env' eqenv
   rewrite pe-correct e env' eqenv | pe-correct e₁ env' eqenv = refl
