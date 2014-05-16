@@ -125,6 +125,43 @@ lift-dec⁻ (SPrd α α₁) with lift-dec⁻ α | lift-dec⁻ α₁
 lift-dec⁻ (SSum α α₁) = no (λ ())
 lift-dec⁻ (D x) = yes (D x)
 
+
+----------------
+-- Proving liftable by reflection
+----------------
+
+open import Relation.Nullary.Decidable
+open import Data.Product
 try-lift : ∀ {α Γ} → AExp Γ α → Dec (Liftable α)
 try-lift {α} _ = lift-dec α 
+
+ex-liftable1 : Liftable (SFun (D Num) (D Num))
+ex-liftable1 = from-yes (lift-dec (SFun (D Num) (D Num)))
+
+infer-lift' : {α : AType} {Δ : ACtx} → AExp Δ α → From-yes (lift-dec α)
+infer-lift' e = from-yes (try-lift e)
+
+infer-lift : ∀ {α Δ} → AExp Δ α → From-yes (lift-dec α) × AExp Δ α
+infer-lift e = infer-lift' e , e
+
+lift-id : AExp [] (SFun (D Num) (D Num)) → AExp [] (D (Fun Num Num))
+lift-id e = Lift (infer-lift' e) e
+
+ilift : ∀ {α Δ} → Liftable α × AExp Δ α → AExp Δ (D (erase α))
+ilift p = uncurry Lift p
+
+-- examples
+e1 : AExp [] (SFun (D Num) (D Num))
+e1 = (SLam (Var hd))
+
+e1-lifted : _
+e1-lifted = ilift (infer-lift e1)  -- liftable inferred
+
+-- TODO: It does not work as conventient as expected. Try to avoid the duplication of α (first parameter)
+e2 : AExp [] (SFun (SFun (D Num) (D Num)) (SFun (D Num) (D (Prd Num Num))))
+e2 = (SLam 
+       (SLam {α₁ = D Num} (DPair (SApp (Var (tl hd)) (Var hd))
+             (DApp (ilift (infer-lift {α} (Var (tl hd))) ) (Var hd)))))
+  where α = (SFun (D Num) (D Num))
+             -- Arrr.. we still need α! 
 
