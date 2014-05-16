@@ -154,10 +154,17 @@ ilift p = uncurry Lift p
 e1 : AExp [] (SFun (D Num) (D Num))
 e1 = (SLam (Var hd))
 
+-- Liftable inferred
 e1-lifted : _
 e1-lifted = ilift (infer-lift e1)  -- liftable inferred
 
--- TODO: It does not work as conventient as expected. Try to avoid the duplication of α (first parameter)
+-- liftable inferred, without type signature; the only type needed is
+-- for the function parameter (and the context)
+e1-lifted' : AExp [] _
+e1-lifted' = ilift (infer-lift (SLam {α₁ = D Num} (Var hd)))
+
+-- TODO: It does not work as conventient as expected. Try to avoid the
+-- duplication of α (first parameter)
 e2 : AExp [] (SFun (SFun (D Num) (D Num)) (SFun (D Num) (D (Prd Num Num))))
 e2 = (SLam 
        (SLam {α₁ = D Num} (DPair (SApp (Var (tl hd)) (Var hd))
