@@ -170,6 +170,15 @@ UNat = Ind UNatTy
 -- zero and successor function
 
 --helper
+fromℕ' : ∀ {Γ} → ℕ → Exp Γ UNat
+fromℕ' = fold mzero msuc
+  where -- meta-zero and -succ
+      mzero : ∀ {Γ} → Exp Γ UNat
+      mzero = EFold (EInl ETT) 
+
+      msuc : ∀ {Γ} → Exp Γ UNat → Exp Γ UNat
+      msuc e = EFold (EInr e)
+
 fromℕ : ∀ {Γ} → ℕ → Exp Γ UNat
 fromℕ = fold mzero msuc
   where -- meta-zero and -succ
@@ -185,17 +194,43 @@ ezero = EFold (EInl ETT)
 esuc : ∀ {Γ} → Exp Γ (Fun UNat UNat)
 esuc = ELam (EFold (EInr (EVar hd)))
 
+epred : ∀ {Γ} → Exp Γ (Fun UNat UNat)
+epred = ELam ((EFoldRec (EVar hd) (ELam (ECase (EVar hd) {!EInl ?!} {!!})) ))
+
 eplus : ∀ {Γ} → Exp Γ (Fun UNat (Fun UNat UNat))
 eplus = ELam (ELam (EFoldRec (EVar (tl hd)) cases))
   where cases = ELam (ECase (EVar hd)
                             (EVar (tl (tl hd)))    -- zero case, use e2
                             (EApp esuc (EVar hd))) -- recursive case
+                            
+TBool : Type
+TBool = Sum UNIT UNIT
+
+ele : ∀ {Γ} → Exp Γ (Fun (Prd UNat UNat) (TBool))
+ele = ELam {! !}
 
 test-eplus : ev (EApp (EApp eplus (fromℕ 31)) (fromℕ 11)) [] ≡ ev (fromℕ 42) []
 test-eplus = refl
 
--- TODO:
-UNatListTy : Ty
-UNatListTy = Sum UNIT (Prd UNatTy Hole)
-UNatList : Type
-UNatList = Ind UNatListTy
+UBinTy : Ty
+UBinTy = Sum UNIT (Prd Hole Hole)
+UBin : Type
+UBin = Ind UBinTy
+
+
+-- helper
+leaf : ∀ {Γ} → Exp Γ UBin
+leaf = EFold (EInl ETT)
+
+node : ∀ {Γ} → Exp Γ UBin → Exp Γ UBin → Exp Γ UBin
+node e1 e2 = EFold (EInr (EPair e1 e2))
+
+
+-- defs
+eleaf = leaf
+
+enode : ∀ {Γ} → Exp Γ (Fun (Prd (UBin) (UBin)) (UBin))
+enode = λ {Γ} → ELam (EFold (EInr (EVar hd)))
+
+
+
