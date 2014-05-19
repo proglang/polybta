@@ -167,7 +167,7 @@ e1-lifted' = ilift (infer-lift (SLam {α₁ = D Num} (Var hd)))
 -- duplication of α (first parameter)
 e2 : AExp [] (SFun (SFun (D Num) (D Num)) (SFun (D Num) (D (Prd Num Num))))
 e2 = (SLam 
-       (SLam {α₁ = D Num} (DPair (SApp (Var (tl hd)) (Var hd))
+       (SLam (DPair (SApp (Var (tl hd)) (Var hd))
              (DApp (ilift (infer-lift {α} (Var (tl hd))) ) (Var hd)))))
   where α = (SFun (D Num) (D Num))
              -- Arrr.. we still need α! 
