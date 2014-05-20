@@ -168,17 +168,13 @@ UNat : Type
 UNat = Ind UNatTy
 
 -- zero and successor function
+ezero : ∀ {Γ} → Exp Γ UNat
+ezero = EFold (EInl ETT) 
 
---helper
-fromℕ' : ∀ {Γ} → ℕ → Exp Γ UNat
-fromℕ' = fold mzero msuc
-  where -- meta-zero and -succ
-      mzero : ∀ {Γ} → Exp Γ UNat
-      mzero = EFold (EInl ETT) 
+esuc : ∀ {Γ} → Exp Γ (Fun UNat UNat)
+esuc = ELam (EFold (EInr (EVar hd)))
 
-      msuc : ∀ {Γ} → Exp Γ UNat → Exp Γ UNat
-      msuc e = EFold (EInr e)
-
+--helper for tests
 fromℕ : ∀ {Γ} → ℕ → Exp Γ UNat
 fromℕ = fold mzero msuc
   where -- meta-zero and -succ
@@ -187,30 +183,77 @@ fromℕ = fold mzero msuc
 
       msuc : ∀ {Γ} → Exp Γ UNat → Exp Γ UNat
       msuc e = EFold (EInr e)
+      
+-- conversion from Num to UNat and back
+fromNum : ∀ {Γ} → Exp Γ (Fun Num UNat)
+fromNum = ELam (ERec (EVar hd) (ELam (ECase (EVar hd) mzero (EApp esuc (EVar hd)))))
+  where -- meta-zero and -succ
+      mzero : ∀ {Γ} → Exp Γ UNat
+      mzero = EFold (EInl ETT) 
 
-ezero : ∀ {Γ} → Exp Γ UNat
-ezero = EFold (EInl ETT) 
+      msuc : ∀ {Γ} → Exp Γ UNat → Exp Γ UNat
+      msuc e = EFold (EInr e)
+      
+toNum : ∀ {Γ} → Exp Γ (Fun UNat Num)
+toNum = ELam (EFoldRec (EVar hd) (ELam (ECase (EVar hd) (ECst 0) (ESuc (EVar hd)))))
 
-esuc : ∀ {Γ} → Exp Γ (Fun UNat UNat)
-esuc = ELam (EFold (EInr (EVar hd)))
+      
+test-fromNum : ev (EApp fromNum (ECst 42)) [] ≡ ev (fromℕ 42) []
+test-fromNum = refl
 
-epred : ∀ {Γ} → Exp Γ (Fun UNat UNat)
-epred = ELam ((EFoldRec (EVar hd) (ELam (ECase (EVar hd) {!EInl ?!} {!!})) ))
+test-toNum1 : ev (EApp toNum (fromℕ 42)) [] ≡ 42
+test-toNum1 = refl
 
+test-toNum2 : ev (EApp toNum (EApp esuc (EApp esuc (EApp esuc ezero)))) [] ≡ 3
+test-toNum2 = refl
+
+
+-- addition
 eplus : ∀ {Γ} → Exp Γ (Fun UNat (Fun UNat UNat))
 eplus = ELam (ELam (EFoldRec (EVar (tl hd)) cases))
   where cases = ELam (ECase (EVar hd)
                             (EVar (tl (tl hd)))    -- zero case, use e2
                             (EApp esuc (EVar hd))) -- recursive case
+
+test-eplus : ev (EApp (EApp eplus (fromℕ 31)) (fromℕ 11)) [] ≡ ev (fromℕ 42) []
+test-eplus = refl
+
+
+-- predecessor
+enatcase : ∀ {Γ τ} → Exp Γ (Fun (Prd τ (Fun UNat τ)) (Fun UNat UNat))
+enatcase = ELam (ELam (EFst (EFoldRec (EVar hd)
+  (ELam (ECase (EVar hd) (EPair ezero ezero) (EFoldRec (ESnd (EVar hd))
+                                              (ELam (ECase (EVar hd)
+                                                    (EPair ezero (EApp esuc ezero))
+                                                    (EPair (EApp esuc (EFst (EVar hd))) (EApp esuc (ESnd (EVar hd))))))))))))
+epred : ∀ {Γ} → Exp Γ (Fun UNat UNat)
+epred = EApp enatcase (EPair ezero (ELam (EVar hd)))
+
+test-epred : ev (EApp toNum (EApp epred (EApp fromNum (ECst 42)))) [] ≡ 41
+test-epred = refl
+
+-- substraction
+etimes : ∀ {Γ τ} → Exp Γ (Fun (Prd UNat τ) (Fun (Fun τ τ) τ))
+etimes = ELam (ELam (EFoldRec (EFst (EVar (tl hd))) (ELam (ECase (EVar hd) (ESnd (EVar (tl (tl (tl hd))))) (EApp (EVar (tl (tl hd))) (EVar hd))))))
+
+esub : ∀ {Γ} → Exp Γ (Fun (Prd UNat UNat) UNat)
+esub = ELam (EApp (EApp etimes (EPair (ESnd (EVar hd)) (EFst (EVar hd)))) epred)
+
+test-esub : ev (EApp toNum (EApp esub (EPair (fromℕ 42) (fromℕ 11)))) [] ≡ 31
+test-esub = refl
                             
 TBool : Type
 TBool = Sum UNIT UNIT
 
-ele : ∀ {Γ} → Exp Γ (Fun (Prd UNat UNat) (TBool))
-ele = ELam {! !}
+emax : ∀ {Γ} → Exp Γ (Fun (Prd UNat UNat) UNat)
+emax = ELam (EFoldRec (EApp esub (EVar hd))
+  (ELam (ECase (EVar hd) (ESnd (EVar (tl (tl hd)))) (EFst (EVar (tl (tl hd)))))))
+  
+test-emax : ev (EApp toNum (EApp emax (EPair (fromℕ 42) (fromℕ 11)))) [] ≡ 42
+test-emax = refl
 
-test-eplus : ev (EApp (EApp eplus (fromℕ 31)) (fromℕ 11)) [] ≡ ev (fromℕ 42) []
-test-eplus = refl
+test-emax2 : ev (EApp toNum (EApp emax (EPair (fromℕ 2) (fromℕ 11)))) [] ≡ 11
+test-emax2 = refl
 
 UBinTy : Ty
 UBinTy = Sum UNIT (Prd Hole Hole)
@@ -232,5 +275,24 @@ eleaf = leaf
 enode : ∀ {Γ} → Exp Γ (Fun (Prd (UBin) (UBin)) (UBin))
 enode = λ {Γ} → ELam (EFold (EInr (EVar hd)))
 
+eheight : ∀ {Γ} → Exp Γ (Fun UBin UNat)
+eheight = ELam (EFoldRec (EVar hd) (ELam (ECase (EVar hd) ezero (EApp esuc (EApp emax (EVar hd))))))
 
+bin1 : ∀ {Γ} → Exp Γ UBin
+bin1 = EApp enode (EPair eleaf eleaf)
+
+bin2 : ∀ {Γ} → Exp Γ UBin
+bin2 = EApp enode (EPair bin1 eleaf)
+
+bin3 : ∀ {Γ} → Exp Γ UBin
+bin3 = EApp enode (EPair bin1 (EApp enode (EPair bin2 (EApp enode (EPair eleaf bin1)))))
+
+test-height1 : ev (EApp toNum (EApp eheight bin1)) [] ≡ 1
+test-height1 = refl
+
+test-height2 : ev (EApp toNum (EApp eheight bin2)) [] ≡ 2
+test-height2 = refl
+
+test-height3 : ev (EApp toNum (EApp eheight bin3)) [] ≡ 4
+test-height3 = refl
 
