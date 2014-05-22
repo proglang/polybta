@@ -8,6 +8,7 @@ open import Data.Bool
 -- Shape of inductive types
 data Ty : Set where
  Hole : Ty -- recursive occurence
+ Ind : Ty → Ty -- substructure
  UNIT : Ty
  Sum : Ty → Ty → Ty
  Prd : Ty → Ty → Ty
@@ -21,9 +22,10 @@ data Type : Set where
   Ind : Ty → Type
 Ctx = List Type
 
--- Fill the holes in a Shape with a Type
+-- -- Fill the holes in a Shape with a Type
 fmap : Ty → Type → Type
 fmap Hole τ = τ
+fmap (Ind T) _ = Ind T
 fmap UNIT τ = UNIT
 fmap (Sum T T₁) τ = Sum (fmap T τ) (fmap T₁ τ)
 fmap (Prd T T₁) τ = Prd (fmap T τ) (fmap T₁ τ)
@@ -54,6 +56,7 @@ data Exp (Γ : Ctx) : Type → Set where
 -- is the type of the current node
 data U : Ty → Ty → Set where
   InHole : ∀ T → U T T → U T Hole
+  InSub : ∀ T T' → U T' T' → U T (Ind T')
   UNIT : ∀ T → U T UNIT
   Left : ∀ T T1 T2 → U T T1 → U T (Sum T1 T2)
   Right : ∀ T T1 T2 → U T T2 → U T (Sum T1 T2)
@@ -99,18 +102,20 @@ listrec (x ∷ l) v = v (inj₂ (x , listrec l v))
 -- Interpretation of Shapes given an interpreted type
 UInt : Ty → Set → Set
 UInt Hole t = t
+UInt (Ind T) t = V T 
 UInt UNIT t = ⊤
 UInt (Sum T1' T2') t = UInt T1' t ⊎ UInt T2' t
 UInt (Prd T1' T2') t = UInt T1' t × UInt T2' t
 
 urec  : ∀ {T1 : Ty} { t : Set } → U T1 T1 → (UInt T1 t → t) → t
 urec' : ∀ {T1 T2 : Ty} { t : Set } → U T1 T2 → (UInt T1 t → t) → UInt T2 t
-urec u v = v (urec' u v) 
-urec' {T1} (InHole .T1 u) v = urec u v
-urec' {T1} (UNIT .T1) v = tt
-urec' {T1} (Left .T1 T2 T3 u) v = inj₁ (urec' u v)
-urec' {T1} (Right .T1 T2 T3 u) v = inj₂ (urec' u v)
-urec' {T1} (Pair .T1 T2 T3 u u₁) v = ( urec' u v , urec' u₁ v )
+urec u alg = alg (urec' u alg) 
+urec' {T1} (InHole .T1 u) alg = urec u alg
+urec' {T1} (InSub .T1 T' x) alg = x
+urec' {T1} (UNIT .T1) alg = tt
+urec' {T1} (Left .T1 T2 T3 u) alg = inj₁ (urec' u alg)
+urec' {T1} (Right .T1 T2 T3 u) alg = inj₂ (urec' u alg)
+urec' {T1} (Pair .T1 T2 T3 u u₁) alg = ( urec' u alg , urec' u₁ alg )
 
 -- implements elimination
 vrec : ∀ {T : Ty} {t : Set} → V T → (UInt T t → t) → t
@@ -119,6 +124,7 @@ vrec u v = urec u v
 ufold' : (T0 T : Ty) → TInt (fmap T (Ind T0)) → U T0 T
 ufold' T0 Hole v = InHole T0 v
 ufold' T0 UNIT v = UNIT T0
+ufold' T0 (Ind T) v = InSub T0 T v
 ufold' T0 (Sum T T₁) (inj₁ x) = Left T0 T T₁ (ufold' T0 T x)
 ufold' T0 (Sum T T₁) (inj₂ y) = Right T0 T T₁ (ufold' T0 T₁ y)
 ufold' T0 (Prd T T₁) v = Pair T0 T T₁ (ufold' T0 T (proj₁ v)) (ufold' T0 T₁ (proj₂ v))
@@ -131,6 +137,7 @@ ufold T v = ufold' T T v
 lem-uint-tint : ∀ T τ → UInt T (TInt τ) ≡ TInt (fmap T τ)
 lem-uint-tint Hole τ = refl
 lem-uint-tint UNIT τ = refl
+lem-uint-tint (Ind T') τ = refl
 lem-uint-tint (Sum T T₁) τ rewrite lem-uint-tint T τ | lem-uint-tint T₁ τ = refl
 lem-uint-tint (Prd T T₁) τ rewrite lem-uint-tint T τ | lem-uint-tint T₁ τ = refl
 
@@ -184,6 +191,14 @@ fromℕ = fold mzero msuc
       msuc : ∀ {Γ} → Exp Γ UNat → Exp Γ UNat
       msuc e = EFold (EInr e)
       
+toℕ : V UNatTy → ℕ
+toℕ (Left .(Sum UNIT Hole) .UNIT .Hole v) = 0
+toℕ (Right .(Sum UNIT Hole) .UNIT .Hole (InHole .(Sum UNIT Hole) v)) = suc (toℕ v)
+      
+lem-toℕ-fromℕ : ∀ n → toℕ (ev (fromℕ n) []) ≡ n
+lem-toℕ-fromℕ zero = refl
+lem-toℕ-fromℕ (suc n) rewrite lem-toℕ-fromℕ n = refl
+
 -- conversion from Num to UNat and back
 fromNum : ∀ {Γ} → Exp Γ (Fun Num UNat)
 fromNum = ELam (ERec (EVar hd) (ELam (ECase (EVar hd) mzero (EApp esuc (EVar hd)))))
@@ -196,6 +211,7 @@ fromNum = ELam (ERec (EVar hd) (ELam (ECase (EVar hd) mzero (EApp esuc (EVar hd)
       
 toNum : ∀ {Γ} → Exp Γ (Fun UNat Num)
 toNum = ELam (EFoldRec (EVar hd) (ELam (ECase (EVar hd) (ECst 0) (ESuc (EVar hd)))))
+
 
       
 test-fromNum : ev (EApp fromNum (ECst 42)) [] ≡ ev (fromℕ 42) []
@@ -242,9 +258,7 @@ esub = ELam (EApp (EApp etimes (EPair (ESnd (EVar hd)) (EFst (EVar hd)))) epred)
 test-esub : ev (EApp toNum (EApp esub (EPair (fromℕ 42) (fromℕ 11)))) [] ≡ 31
 test-esub = refl
                             
-TBool : Type
-TBool = Sum UNIT UNIT
-
+-- maximum
 emax : ∀ {Γ} → Exp Γ (Fun (Prd UNat UNat) UNat)
 emax = ELam (EFoldRec (EApp esub (EVar hd))
   (ELam (ECase (EVar hd) (ESnd (EVar (tl (tl hd)))) (EFst (EVar (tl (tl hd)))))))
@@ -255,6 +269,7 @@ test-emax = refl
 test-emax2 : ev (EApp toNum (EApp emax (EPair (fromℕ 2) (fromℕ 11)))) [] ≡ 11
 test-emax2 = refl
 
+-- Binary trees
 UBinTy : Ty
 UBinTy = Sum UNIT (Prd Hole Hole)
 UBin : Type
@@ -296,3 +311,42 @@ test-height2 = refl
 test-height3 : ev (EApp toNum (EApp eheight bin3)) [] ≡ 4
 test-height3 = refl
 
+-- Natlist
+UNatListTy : Ty
+UNatListTy = Sum UNIT (Prd (Ind UNatTy) Hole)
+UNatList : Type
+UNatList = Ind UNatListTy
+
+enil : ∀ {Γ} → Exp Γ UNatList
+enil = EFold (EInl ETT)
+
+econs : ∀ {Γ} → Exp Γ (Fun (Prd UNat UNatList) UNatList)
+econs = ELam (EFold (EInr (EPair (EFst (EVar hd)) (ESnd (EVar hd)))))
+
+fromList : ∀ {Γ} → List ℕ → Exp Γ UNatList
+fromList [] = EFold (EInl ETT)
+fromList (x ∷ xs) = EApp econs (EPair (fromℕ x) (fromList xs))
+
+toList : V UNatListTy → List ℕ 
+toList v = urec v f
+  where f : (x : ⊤ ⊎ Σ (U (Sum UNIT Hole) (Sum UNIT Hole)) (λ _ → List ℕ)) →
+              List ℕ
+        f (inj₁ _) = []
+        f (inj₂ (x , xs)) = toℕ x ∷ xs
+
+l1 l2 : List ℕ
+l1 = (1 ∷ 2 ∷ 3 ∷ 4 ∷ [])
+l2 = (1 ∷ 2 ∷ [])
+
+emap : ∀ {Γ} → Exp Γ (Fun (Fun UNat UNat) (Fun UNatList UNatList))
+emap = ELam (ELam (EFoldRec (EVar hd)
+      (ELam (ECase (EVar hd)
+        enil
+        (EApp econs (EPair (EApp (EVar (tl (tl (tl hd))))
+                           (EFst (EVar hd))) (ESnd (EVar hd))))))))
+                           
+test-emap-nil : toList (ev (EApp (EApp emap esuc) enil) []) ≡ []
+test-emap-nil = refl
+
+test-emap-l1 : toList (ev (EApp (EApp emap esuc) (fromList l1)) []) ≡ 2 ∷ 3 ∷ 4 ∷ 5 ∷ []
+test-emap-l1 = refl
