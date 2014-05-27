@@ -17,11 +17,15 @@ residualize : ∀ {α Δ} → AExp Δ α → Exp (map erase Δ) (erase α)
 \begin{code}
 residualize (Var x) = EVar (mapIdx erase  x)
 residualize (SCst x) = ECst x
+residualize (SSuc e) = ESuc (residualize e)
+residualize (SRec eₙ e₀ eₛ) = ERec (residualize eₙ) (residualize e₀) (residualize eₛ)
 residualize (SAdd e e₁) = EAdd (residualize e) (residualize e₁)
 residualize (SLam e) = ELam (residualize e)
 residualize (SApp e e₁)  = EApp (residualize e) (residualize e₁)
 residualize (DCst x)  = ECst x
+residualize (DSuc e) = ESuc (residualize e)
 residualize (DAdd e e₁) = EAdd (residualize e) (residualize e₁)
+residualize (DRec eₙ e₀ eₛ) = ERec (residualize eₙ) (residualize e₀) (residualize eₛ)
 residualize (DLam e)  = ELam (residualize e)
 residualize (DApp e e₁)  = EApp (residualize e) (residualize e₁)
 residualize (SPair e e₁)  = EPair (residualize e)  (residualize e₁)
@@ -168,6 +172,10 @@ elevate-≡ : ∀ {τ Γ Γ' Γ''}
                   ev e ρ ≡ ev (elevate Γ↝Γ'↝Γ'' e) ρ''
 elevate-≡ ρ↝ρ' (EVar x) = lookup-elevate2-≡ ρ↝ρ' x
 elevate-≡ ρ↝ρ' (ECst x) = refl
+elevate-≡ ρ↝ρ' (ESuc e) with elevate-≡ ρ↝ρ' e
+... | IA = cong suc IA
+elevate-≡ ρ↝ρ' (ERec e e₀ e₁) with elevate-≡ ρ↝ρ' e | elevate-≡ ρ↝ρ' e₀ | elevate-≡ ρ↝ρ' e₁
+... | IA | IA₀ | IA₁ = cong₃ natrec IA IA₀ IA₁
 elevate-≡ ρ↝ρ' (EAdd e e₁) with elevate-≡ ρ↝ρ' e | elevate-≡ ρ↝ρ' e₁
 ... | IA1 | IA2 = cong₂ _+_ IA1 IA2
 elevate-≡ {Γ↝Γ'↝Γ'' = Γ↝Γ'↝Γ''}
@@ -290,6 +298,29 @@ mutual
                   g rewrite lift-correct x env' av' v' eq'  
                           | sym (cong (λ f → f v') (int↑-equiv e v (envext) eq))
                           |  (cong (λ f → f v') eq) = refl 
+
+natrec-correct :
+          ∀ {Δ} → 
+          (n : _) →
+          (Γ' : List Type)
+          (ρ' : AEnv Γ' Δ) (ρ'' : Env (map erase Δ))
+          (α : _)
+          (e₀ : AExp Δ α) (e₁ : AExp Δ (SFun α α))
+          (env'  : Env Γ')
+          (IA₀ : Equiv env' (pe e₀ ρ') (ev (residualize e₀) ρ'')) →
+          (IA₁ : {Γ₁' : List Type} {ρ₁' : Env Γ₁'} {Γ↝Γ' : Γ' ↝ Γ₁'} →
+                 Γ↝Γ' ⊢ env' ↝ ρ₁' →
+                 {xₐ : ATInt Γ₁' α}
+                 {x : TInt (erase α)} →
+                 Equiv ρ₁' xₐ x →
+                 Equiv ρ₁' (pe e₁ ρ' Γ↝Γ' xₐ) (ev (residualize e₁) ρ'' x)) →
+          Equiv env'
+          (natrec n (pe e₀ ρ') (pe e₁ ρ' refl))
+          (natrec n (ev (residualize e₀) ρ'') (ev (residualize e₁) ρ''))
+natrec-correct zero Γ' ρ' ρ'' α e₀ e₁ env' IA₀ IA₁ = IA₀
+natrec-correct (suc n) Γ' ρ' ρ'' α e₀ e₁ env' IA₀ IA₁ 
+  with natrec-correct n Γ' ρ' ρ'' α e₀ e₁ env' IA₀ IA₁ 
+... | IA = IA₁ refl IA
 \end{code}}
 \agdaSnippet\btaPeCorrect{
 \begin{code}
@@ -304,6 +335,10 @@ pe-correct : ∀ { α Δ Γ' } →
 \begin{code}
 pe-correct (Var x) env' eqenv = lookup-equiv env' eqenv x
 pe-correct (SCst x) env' eqenv = refl
+pe-correct (SSuc e) env' eqenv rewrite pe-correct e env' eqenv = refl
+pe-correct {Δ = Δ} {Γ' = Γ'} (SRec {α} e e₀ e₁) env' {ρ'} {ρ''} eqenv
+  with pe-correct e env' eqenv | pe-correct e₀ env' eqenv | pe-correct e₁ env' eqenv
+... | IA | IA₀ | IA₁ rewrite IA = natrec-correct (ev (residualize e) ρ'') Γ' ρ' ρ'' α e₀ e₁ env' IA₀ IA₁
 pe-correct (SAdd e e₁) env' eqenv 
   rewrite pe-correct e env' eqenv | pe-correct e₁ env' eqenv = refl
 pe-correct (SLam e) env' eqenv = 
@@ -317,6 +352,8 @@ pe-correct (SApp e e₁) env' eqenv
   with pe-correct e env' eqenv | pe-correct e₁ env' eqenv
 ... | IAe | IAf = IAe (refl) IAf
 pe-correct (DCst x) env' eqenv = refl
+pe-correct (DSuc e) env' eqenv rewrite pe-correct e env' eqenv = refl
+pe-correct (DRec e e₀ e₁) env' eqenv rewrite pe-correct e env' eqenv | pe-correct e₀ env' eqenv | pe-correct e₁ env' eqenv = refl
 pe-correct (DAdd e e₁) env' eqenv
   rewrite pe-correct e env' eqenv | pe-correct e₁ env' eqenv = refl
 pe-correct (DLam e) env' eqenv = 

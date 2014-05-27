@@ -12,6 +12,8 @@ Ctx = List Type
 data Exp (Γ : Ctx) : Type → Set where
   EVar : ∀ {τ} → τ ∈ Γ → Exp Γ τ
   ECst : ℕ → Exp Γ Num
+  ESuc : Exp Γ Num → Exp Γ Num
+  ERec : ∀ {τ} → Exp Γ Num → Exp Γ τ → Exp Γ (Fun τ τ) → Exp Γ τ
   EAdd : Exp Γ Num → Exp Γ Num → Exp Γ Num
   ELam : ∀ {τ τ'} → Exp (τ ∷ Γ) τ' → Exp Γ (Fun τ τ')
   EApp : ∀ {τ τ'} → Exp Γ (Fun τ τ') → Exp Γ τ → Exp Γ τ'
@@ -35,9 +37,15 @@ lookupE : ∀ { τ Γ } → τ ∈ Γ → Env Γ → TInt τ
 lookupE hd (x ∷ ρ) = x
 lookupE (tl v) (_ ∷ ρ) = lookupE v ρ
 
+natrec : ∀ { t : Set } → ℕ → t → (t → t) → t
+natrec zero v0 vs = v0
+natrec (suc n) v0 vs = vs (natrec n v0 vs)
+
 ev : ∀ {τ Γ} → Exp Γ τ → Env Γ → TInt τ
 ev (EVar v) ρ = lookupE v ρ
 ev (ECst x) ρ = x
+ev (ESuc e) ρ = suc (ev e ρ)
+ev (ERec e e0 es) ρ = natrec (ev e ρ) (ev e0 ρ) (ev es ρ)
 ev (EAdd e f) ρ = ev e ρ + ev f ρ
 ev (ELam e) ρ = λ x → ev e (x ∷ ρ)
 ev (EApp e f) ρ = ev e ρ (ev f ρ)

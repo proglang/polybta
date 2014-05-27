@@ -239,116 +239,6 @@ proj (DAdd ae ae₁) env = DAdd (proj ae env) (proj ae₁ env)
 proj {D (Fun τ₁ τ₂)} (DLam ae) env = DLam (λ v → proj ae (cons v env))
 proj (DApp ae ae₁) env = DApp (proj ae env) (proj ae₁ env)
 
----------------------------------
---a generalized version of [proj]
----------------------------------
-----------------------------
---alternative environment
-----------------------------
-data Env' : (AType → Set) → ACtx → Set₁ where
-  []   : ∀ var → Env' var []
-  cons : ∀ {Δ} {α : AType} {var : AType → Set} → var α → Env' var Δ → Env' var (α ∷ Δ)
-
------------------------
---some auxiliary lemmas
------------------------
-lookupenv' : ∀ {A : AType} {Δ : ACtx} {var : AType → Set} → A ∈ Δ → Env' var Δ → var A
-lookupenv' hd (cons x l) = x
-lookupenv' (tl id) (cons x l) = lookupenv' id l 
-
-
-
-proj' : ∀ {A : AType} {Δ : ACtx} {var : AType → Set}  → AExp Δ A → Env' var Δ  → aexp var A
-proj' {A} {Δ} (Var x) env = Var (lookupenv' x env)
-proj' {AInt} (AInt x) env = SCst x
-proj' (AAdd ae ae₁) env = SAdd (proj' ae env) (proj' ae₁ env)
-proj' {AFun α₁ α₂}  (ALam ae) env = SLam (λ x → proj' ae (cons x env))
-proj' (AApp ae ae₁) env = SApp (proj' ae env) (proj' ae₁ env)
-proj' (DInt x) env = DCst x
-proj' (DAdd ae ae₁) env = DAdd (proj' ae env) (proj' ae₁ env)
-proj' {D (Fun τ₁ τ₂)} (DLam ae) env = DLam (λ v → proj' ae (cons v env))
-proj' (DApp ae ae₁) env = DApp (proj' ae env) (proj' ae₁ env)
-
------------------------------
---from [PHOAS] to [De Bruijn]
---[proj']
------------------------------
-----------
---analysis
-----------
---Since free variable in [PHOAS] stores its value within itself as follows,
---[Var 5] where [5] is the value stored within this free variable
---we donot need to consider "environment" when specifying partial evaluator.
---We need,however,consider it when tranlating from [PHOAS] to [De Bruijn].
-
--- ifeq' : ∀ (A B : Type) → Bool
--- ifeq' Int Int = true
--- ifeq' Int (Fun b b₁) = false
--- ifeq' (Fun a a₁) Int = false
--- ifeq' (Fun a a₁) (Fun b b₁) = ifeq' a b ∧ ifeq' a₁ b₁
-
--- ifeq : ∀ (A B : AType) → Bool
--- ifeq AInt AInt = true
--- ifeq AInt (AFun b b₁) = false
--- ifeq AInt (D x) = false
--- ifeq (AFun a a₁) AInt = false
--- ifeq (AFun a a₁) (AFun b b₁) = ifeq a b ∧ ifeq a₁ b₁
--- ifeq (AFun a a₁) (D x) = false
--- ifeq (D x) AInt = false
--- ifeq (D x) (AFun b b₁) = false
--- ifeq (D x) (D x₁) = ifeq' x x₁
-
--- ifeqAInt : ∀ {var : Type → Set} {A : AType} (a b : ATInt var A) → Σ (ATInt var A) \ x → Bool
--- ifeqAInt {var} {AInt} zero zero = zero , true
--- ifeqAInt {var} {AInt} zero (suc b) = zero , false
--- ifeqAInt {var} {AInt} (suc a) zero = (suc a) , false
--- ifeqAInt {var} {AInt} (suc a) (suc b) = zero , (proj₂ (ifeqAInt {var} {AInt} a b))
--- ifeqAInt {var} {AFun A A₁} a b = {!!} , {!!}
--- ifeqAInt {var} {D x} a b = {!!}
-
--- ∧-eq : ∀ {a b : Bool} → a ∧ b ≡ true → (a ≡ true) × (b ≡ true)
--- ∧-eq {true} {true} eq = refl , refl
--- ∧-eq {true} {false} ()
--- ∧-eq {false} ()
-
--- eqAB' : ∀ {A B : Type} → (ifeq' A B ≡ true) → A ≡ B
--- eqAB' {Int} {Int} b = refl
--- eqAB' {Int} {Fun B B₁} ()
--- eqAB' {Fun A A₁} {Int} ()
--- eqAB' {Fun A A₁} {Fun B B₁} b 
---   rewrite eqAB' {A} {B} (proj₁ (∧-eq {ifeq' A B} {ifeq' A₁ B₁} b)) | eqAB' {A₁} {B₁} (proj₂ (∧-eq {ifeq' A B} {ifeq' A₁ B₁} b))
---     = refl
-
--- eqAB : ∀ {A B : AType} → (ifeq A B ≡ true)  → A ≡ B
--- eqAB {AInt} {AInt} b = refl
--- eqAB {AInt} {AFun B B₁} ()
--- eqAB {AInt} {D x} ()
--- eqAB {AFun A A₁} {AInt} ()
--- eqAB {AFun A A₁} {AFun B B₁} b 
---   rewrite eqAB {A} {B} (proj₁ (∧-eq {ifeq A B} {ifeq A₁ B₁} b)) | eqAB {A₁} {B₁} (proj₂ (∧-eq {ifeq A B} {ifeq A₁ B₁} b)) 
---     = refl
--- eqAB {AFun A A₁} {D x} ()
--- eqAB {D x} {AInt} ()
--- eqAB {D x} {AFun B B₁} ()
--- eqAB {D x} {D x₁} b rewrite eqAB' {x} {x₁} b = refl
-
-
-
--- lookupenv'' : ∀ {A : AType} {Δ : ACtx} {var : Type → Set} → ATInt var A → Env var Δ → A ∈ Δ
--- lookupenv'' {A} {.[]} {var} e ([]) = {!!}
--- lookupenv'' {A} e (cons {α = α} x l) = {!!} 
-
--- proj'' : ∀ {A : AType} {Δ : ACtx} {var : Type → Set} → aexp (ATInt var) A → Env var Δ → AExp Δ A
--- proj'' (Var x) env = Var (lookupenv'' x env)
--- proj'' (SCst x) env = AInt x
--- proj'' (SAdd e e₁) env = AAdd (proj'' e env) (proj'' e₁ env)
--- proj'' {AFun A B} {var = var} (SLam x) env = ALam {!λ v → proj'' (x v) (cons v env)!}
--- proj'' (SApp e e₁) env = AApp (proj'' e env) (proj'' e₁ env)
--- proj'' (DCst x) env = DInt x
--- proj'' (DAdd e e₁) env = DAdd (proj'' e env) (proj'' e₁ env)
--- proj'' (DLam x) env = DLam {!λ v → proj'' (x v) (cons v env)!}
--- proj'' (DApp e e₁) env = DApp (proj'' e env) (proj'' e₁ env)
-
 --------------------------------------------------------------------------------------
 --partial evaluation is indifferent to the translation from [AExp] to [aexp] by [proj]
 --------------------------------------------------------------------------------------
@@ -373,9 +263,6 @@ elevate-var2 : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → τ ∈ Γ → τ
 elevate-var2 (↝↝-base x) x₁ = elevate-var x x₁
 elevate-var2 (↝↝-extend Γ↝Γ'↝Γ'') hd = hd
 elevate-var2 (↝↝-extend Γ↝Γ'↝Γ'') (tl x) = tl (elevate-var2 Γ↝Γ'↝Γ'' x)
-
-
-
 
 elevate : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → Exp Γ τ → Exp Γ'' τ
 elevate Γ↝Γ'↝Γ'' (EVar x) = EVar (elevate-var2 Γ↝Γ'↝Γ'' x)
@@ -692,21 +579,25 @@ etG2S-trans≡ {var₁} {var₂} {Γ} {Γ'} {(τ ∷ Γ'')} {et} {↝-extend et�
               rewrite etG2S-trans≡ {var₁} {var₂} {Γ} {Γ'} {Γ''} {et} {et₁} 
                   = refl     
 
-Similar : ∀ {A} {var₁ : Type → Set} {var₂ : Type → Set}  → (Γ : List (Σ[ A ∈ Type ] ((var₁ A) × (var₂ A)))) → Imp (en₁2Ctx (Γ2en₁ Γ)) A → 
-            ATInt var₂ A → Set
+Similar : ∀ {A} {var₁ : Type → Set} {var₂ : Type → Set}  →
+          (Γ : List (Σ[ A ∈ Type ] ((var₁ A) × (var₂ A)))) →
+          Imp (en₁2Ctx (Γ2en₁ Γ)) A → ATInt var₂ A → Set
 Similar {AInt} Γ e e' = e ≡ e'
-Similar {AFun A A₁} {var₁} {var₂} Γ e e' = {Γ' : List (Σ[ A ∈ Type ] ((var₁ A) × (var₂ A)))} {v : Imp (en₁2Ctx (Γ2en₁ {var₁} {var₂} Γ')) A} 
-                                           {v' : ATInt var₂ A} →
-                                           --(et : en₁2Ctx (Γ2en₁ Γ) ↝ en₁2Ctx (Γ2en₁ Γ')) →
-                                           (et : Γ ↝ Γ') →
-                                           Similar Γ' v v' → Similar Γ' (e (etG2S et) v) (e' v')
+Similar {AFun A A₁} {var₁} {var₂} Γ e e' =
+  {Γ' : List (Σ[ A ∈ Type ] ((var₁ A) × (var₂ A)))} {v : Imp (en₁2Ctx (Γ2en₁ {var₁} {var₂} Γ')) A} 
+  {v' : ATInt var₂ A} →
+  --(et : en₁2Ctx (Γ2en₁ Γ) ↝ en₁2Ctx (Γ2en₁ Γ')) →
+  (et : Γ ↝ Γ') →
+  Similar Γ' v v' → Similar Γ' (e (etG2S et) v) (e' v')
 Similar {D x} Γ e e' = similar-Exp Γ (Exp2exp (Γ2en₁ Γ) e) e'
     
 
 data similar-env {var₁ : Type → Set} {var₂ : Type → Set} {Γ : List (Σ[ A ∈ Type ] ((var₁ A) × (var₂ A)))} 
      : ∀ {Δ : ACtx} → AEnv (en₁2Ctx (Γ2en₁ Γ)) Δ → Env var₂ Δ → Set₁ where
  []    : similar-env [] [] 
- scons  : ∀ {A : AType} {Δ : ACtx} {e : Imp (en₁2Ctx (Γ2en₁ Γ)) A} {e' : ATInt var₂ A} {aen : AEnv (en₁2Ctx (Γ2en₁ Γ)) Δ} {en : Env var₂ Δ} 
+ scons  : ∀ {A : AType} {Δ : ACtx}
+            {e : Imp (en₁2Ctx (Γ2en₁ Γ)) A} {e' : ATInt var₂ A}
+            {aen : AEnv (en₁2Ctx (Γ2en₁ Γ)) Δ} {en : Env var₂ Δ} 
           → Similar Γ e e'  → similar-env {var₁} {var₂} {Γ} {Δ} aen en → similar-env (cons e aen) (cons e' en)
 
 
@@ -885,7 +776,8 @@ lift-similar-env {A ∷ Δ} {var₁} {var₂} {Γ} {Γ'} {et} {cons e aen} {cons
 
 
 
-proj-correct : ∀ {Δ A var₁ var₂} {Γ :  List (Σ[ A ∈ Type ] ((var₁ A) × (var₂ A)))} {e : AExp Δ A} {aen : AEnv (en₁2Ctx (Γ2en₁ Γ)) Δ} 
+proj-correct : ∀ {Δ A var₁ var₂} {Γ :  List (Σ[ A ∈ Type ] ((var₁ A) × (var₂ A)))}
+                 {e : AExp Δ A} {aen : AEnv (en₁2Ctx (Γ2en₁ Γ)) Δ} 
                  {en : Env var₂ Δ} →
                similar-env {var₁} {var₂} {Γ} {Δ} aen en → 
                let e' = proj e en in

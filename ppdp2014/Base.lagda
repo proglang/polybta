@@ -26,6 +26,12 @@ TInt : Type → Set
 TInt Num = ℕ
 TInt (Fun τ₁ τ₂) = TInt τ₁ → TInt τ₂
 \end{code}}
+\agdaSnippet\btaEnvSimple{
+\begin{code}
+EnvSimple : Set
+EnvSimple = List (∃ λ α → TInt α)
+\end{code}
+}
 \agdaSnippet\btaEnv{
 \begin{code}
 data Env : Ctx → Set where 
