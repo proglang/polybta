@@ -96,41 +96,33 @@ module Step where
 
   ⟦_⟧ : Type -> Set
   ⟦ Num ⟧ = ℕ
-  ⟦ Fun t1 t2 ⟧ = (fuel : ℕ) -> ⟦ t1 ⟧ -> Maybe ⟦ t2 ⟧ 
+  ⟦ Fun t1 t2 ⟧ = ⟦ t1 ⟧ -> Maybe ⟦ t2 ⟧ 
   
   open Env (⟦_⟧)
     
   -- This does not work... we need to put the recursive value ontop of the environment somehow
   ev : forall {G t} -> (fuel : ℕ) -> Env G -> Exp G t -> Maybe ⟦ t ⟧
-  ev' : forall {G t} -> (fuel : ℕ) -> Env G -> Exp G t -> Maybe ⟦ t ⟧ -- checks the gas
-  ev _ env (C x) = just x
-  ev fuel env (NatCase e e₁ e₂) with ev' fuel env e
-  ... | just zero = ev' fuel env e₁
-  ... | just (suc n) = ev' fuel (n ∷ env) e₂
+  ev zero env e = nothing
+  ev (suc fuel) env (C x) = just x
+  ev (suc fuel) env (NatCase e e₁ e₂) with ev fuel env e
+  ... | just zero = ev fuel env e₁
+  ... | just (suc n) = ev fuel (n ∷ env) e₂
   ... | nothing = nothing
-  ev fuel env (Suc e) = suc <$> ev' fuel env e
-  ev _ env (Var x) = just (lookup x env)
-  ev _ env (Lam t1 e) = just (λ fuel x → ev' fuel (x ∷ env) e)
-  ev fuel env (App e e₁) = join (ev' fuel env e ⊛ pure fuel ⊛ ev' fuel env e₁)
-  ev zero env (Fix e) = nothing -- abort
-  ev (suc fuel) env (Fix e) = ev' fuel env (App e (Fix e))
+  ev (suc fuel) env (Suc e) = suc <$> ev fuel env e
+  ev (suc fuel) env (Var x) = just (lookup x env)
+  ev (suc fuel   ) env (Lam t1 e) = just (λ x → ev fuel (x ∷ env) e)
+  ev (suc fuel) env (App e e₁) = join (ev fuel env e ⊛ ev fuel env e₁)
+  ev (suc fuel) env (Fix e) = ev fuel env (App e (Fix e))
   
-  ev' zero env e = nothing
-  ev' (suc fuel) env e = ev fuel env e
-
-  -- -- with ev (suc fuel) env e 
-  -- -- ... | nothing = nothing
-  -- -- ... | just f = f (suc fuel) =<< ev fuel env (App e (Fix e)) --  
-  
-  -- module EvalExamples where
-  --   open Examples
+  module EvalExamples where
+    open Examples
     
-  --   ex1 : ev 20 [] loop ≡ nothing
-  --   ex1 = refl
+    ex1 : ev 20 [] loop ≡ nothing
+    ex1 = refl
   
-  --   ex2 : ev 3000 [] (App inc (C 3)) ≡ nothing
-  --   ex2 = refl
+    ex2 : ev 3000 [] (App inc (C 3)) ≡ nothing
+    ex2 = refl
     
-  --   -- BAHHH!
-  --   ex3 : ev 300 [] nofix ≡ nothing
-  --   ex3 = refl
+    -- BAHHH!
+    ex3 : ev 3000 [] nofix ≡ nothing
+    ex3 = refl
