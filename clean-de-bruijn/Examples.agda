@@ -79,7 +79,7 @@ sack' = SLam (SIt (Var hd) (DLam (DSuc (Var hd))) (Var (tl hd)))
 sack'-m : ℕ → Exp [] (Fun Num Num)
 sack'-m m = pe (SApp (SLam (SApp sack' (SCst m))) diter) []
 
---application for recursors
+--application of recursors
 
 
 Add : AExp [] (SFun SNum (D (Fun Num Num)))
