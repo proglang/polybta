@@ -51,13 +51,19 @@ data AExp (Δ : ACtx) : AType → Set where
   Var : ∀ {α} → α ∈ Δ → AExp Δ α
   SCst : ℕ → AExp Δ SNum
   SSuc : AExp Δ SNum → AExp Δ SNum
-  SRec : ∀ {α} → AExp Δ SNum → AExp Δ α → AExp Δ (SFun α α) → AExp Δ α
+  SIt : ∀ {α} → AExp Δ SNum → AExp Δ α → AExp Δ (SFun α α) → AExp Δ α
+  --static recursor
+  SRec  : ∀ {α} → AExp Δ α → AExp Δ (SFun SNum (SFun α α)) → AExp Δ SNum 
+               → AExp Δ α
   SAdd : AExp Δ SNum → AExp Δ SNum → AExp Δ SNum
   SLam : ∀ {α₁ α₂} → AExp (α₁ ∷ Δ) α₂ → AExp Δ (SFun α₁ α₂)
   SApp : ∀ {α₁ α₂} → AExp Δ (SFun α₁ α₂) → AExp Δ α₁ → AExp Δ α₂
   DCst : ℕ → AExp Δ (D Num)
   DSuc : AExp Δ (D Num) → AExp Δ (D Num)
-  DRec : ∀ {σ} → AExp Δ (D Num) → AExp Δ (D σ) → AExp Δ (D (Fun σ σ)) → AExp Δ (D σ)
+  DIt : ∀ {σ} → AExp Δ (D Num) → AExp Δ (D σ) → AExp Δ (D (Fun σ σ)) → AExp Δ (D σ)
+  --dynamic recursor
+  DRec  : ∀ {σ} → AExp Δ (D σ) → AExp Δ (D (Fun Num (Fun σ σ))) → AExp Δ (D Num) 
+               → AExp Δ (D σ)
   DAdd : AExp Δ (D Num) → AExp Δ (D Num) → AExp Δ (D Num)
   DLam : ∀ {σ₁ σ₂} → AExp ((D σ₁) ∷ Δ) (D σ₂) → AExp Δ (D (Fun σ₁ σ₂))
   DApp : ∀ {σ₁ σ₂} → AExp Δ (D (Fun σ₂ σ₁)) → AExp Δ (D σ₂) → AExp Δ (D σ₁)
@@ -104,7 +110,8 @@ elevate : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → Exp Γ τ → Exp Γ'
 elevate Γ↝Γ'↝Γ'' (EVar x) = EVar (elevate-var2 Γ↝Γ'↝Γ'' x)
 elevate Γ↝Γ'↝Γ'' (ECst x) = ECst x
 elevate Γ↝Γ'↝Γ'' (ESuc e) = ESuc (elevate Γ↝Γ'↝Γ'' e)
-elevate Γ↝Γ'↝Γ'' (ERec e e₀ e₁) = ERec (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₀) (elevate Γ↝Γ'↝Γ'' e₁)
+elevate Γ↝Γ'↝Γ'' (EIt e e₀ e₁) = EIt (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₀) (elevate Γ↝Γ'↝Γ'' e₁)
+elevate Γ↝Γ'↝Γ'' (ERec v u n) = ERec (elevate Γ↝Γ'↝Γ'' v) (elevate Γ↝Γ'↝Γ'' u) (elevate Γ↝Γ'↝Γ'' n)
 elevate Γ↝Γ'↝Γ'' (EAdd e e₁) = EAdd (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
 elevate Γ↝Γ'↝Γ'' (ELam e) = ELam (elevate (extend Γ↝Γ'↝Γ'') e)
 elevate Γ↝Γ'↝Γ'' (EApp e e₁) = EApp (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
@@ -171,8 +178,11 @@ pe (SCst x) _      = x
 pe (DCst x) _      = ECst x
 pe (SSuc e) ρ      = suc (pe e ρ)
 pe (DSuc e) ρ      = ESuc (pe e ρ)
-pe (SRec e e₀ e₁) ρ = natrec (pe e ρ) (pe e₀ ρ) (pe e₁ ρ refl)
-pe (DRec e e₀ e₁) ρ = ERec (pe e ρ) (pe e₀ ρ) (pe e₁ ρ)
+pe (SIt e e₀ e₁) ρ = natit (pe e ρ) (pe e₀ ρ) (pe e₁ ρ refl)
+pe (DIt e e₀ e₁) ρ = EIt (pe e ρ) (pe e₀ ρ) (pe e₁ ρ)
+--partial evaluation of static and dynamic recursors
+pe {Γ} (SRec v u n) ρ = natrec (pe n ρ) (pe v ρ) (λ n₁ → pe u ρ {Γ} refl n₁ {Γ} refl)
+pe (DRec v u n) ρ = ERec (pe v ρ) (pe u ρ) (pe n ρ)
 pe (SAdd e f) ρ    = (pe e ρ) + (pe f ρ) 
 pe (DAdd e f) ρ    = EAdd (pe e ρ) (pe f ρ) 
 pe (SPair e e₁) ρ = pe e ρ , pe e₁ ρ
