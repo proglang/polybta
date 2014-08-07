@@ -3,14 +3,16 @@ open import Lib
 open import Base
 open import TwoLevel
 
+--application of iterators
+
 add : AExp [] (SFun SNum (D (Fun Num Num)))
-add = SLam (DLam (SRec (Var (tl hd)) (Var hd) (SLam (DSuc (Var hd)))))
+add = SLam (DLam (SIt (Var (tl hd)) (Var hd) (SLam (DSuc (Var hd)))))
 
 pe_add : ℕ → Exp [] (Fun Num Num)
 pe_add n = pe (SApp add (SCst n)) []
 
 mult : AExp [] (SFun SNum (D (Fun Num Num)))
-mult = SLam (DLam (SRec (Var (tl hd)) (DCst 0) (SLam (DAdd (Var hd) (Var (tl hd))))))
+mult = SLam (DLam (SIt (Var (tl hd)) (DCst 0) (SLam (DAdd (Var hd) (Var (tl hd))))))
 
 multn : ℕ → AExp [] (D (Fun Num Num))
 multn n = SApp mult (SCst n)
@@ -18,23 +20,26 @@ multn n = SApp mult (SCst n)
 pe_mult : ℕ → Exp [] (Fun Num Num)
 pe_mult n = pe (multn n) []
 
+
 dmult : ∀ {Δ} → AExp Δ (D (Fun Num (Fun Num Num)))
-dmult = DLam (DLam (DRec (Var (tl hd)) (DCst 0) (DLam (DAdd (Var hd) (Var (tl hd))))))
+dmult = DLam (DLam (DIt (Var (tl hd)) (DCst 0) (DLam (DAdd (Var hd) (Var (tl hd))))))
 
 pe_dmult3 : Exp [] (Fun Num Num)
 pe_dmult3 = pe (DApp dmult (DCst 3)) []
 
 power : AExp [] (SFun SNum (D (Fun Num Num)))
 power = SLam (DLam (DApp (DLam
-        (SRec (Var (tl (tl hd)))
+        (SIt (Var (tl (tl hd)))
               (DCst 1)
               (SLam (DApp (DApp (Var (tl hd)) (Var hd)) (Var (tl (tl hd))))))) dmult))
+
 
 pe_power : ℕ → Exp [] (Fun Num Num)
 pe_power n = pe (SApp power (SCst n)) []
 
+
 predecessor : AExp [] (SFun SNum SNum)
-predecessor = SLam (SFst (SRec (Var hd) (SPair (SCst 0) (SCst 0))
+predecessor = SLam (SFst (SIt (Var hd) (SPair (SCst 0) (SCst 0))
                                         (SLam (SPair (SSnd (Var hd))
                                               (SSuc (SSnd (Var hd)))))))
 
@@ -43,31 +48,122 @@ pe_predecessor n = pe {[]} (SApp predecessor (SCst n)) []
 
 
 iter : Exp [] (Fun (Fun Num Num) (Fun Num Num))
-iter = ELam (ELam (ERec (ESuc (EVar hd)) (ECst 1) (EVar (tl hd))))
+iter = ELam (ELam (EIt (ESuc (EVar hd)) (ECst 1) (EVar (tl hd))))
+
 
 ack : Exp [ Fun (Fun Num Num) (Fun Num Num) ] (Fun Num (Fun Num Num))
-ack = ELam (ERec (EVar hd) (ELam (ESuc (EVar hd))) (EVar (tl hd)))
+ack = ELam (EIt (EVar hd) (ELam (ESuc (EVar hd))) (EVar (tl hd)))
+
 
 ack-m-n : ℕ → ℕ → ℕ
 ack-m-n m n = ev (EApp (EApp ack (ECst m)) (ECst n)) (ev iter [] ∷ [])
+
     
 siter : AExp [] (SFun (D (Fun Num Num)) (SFun SNum (D Num)))
-siter = SLam (SLam (SRec (SSuc (Var hd)) (DCst 1) (SLam (DApp (Var (tl (tl hd))) (Var hd)))))
+siter = SLam (SLam (SIt (SSuc (Var hd)) (DCst 1) (SLam (DApp (Var (tl (tl hd))) (Var hd)))))
+
 
 diter : AExp [] (SFun (D (Fun Num Num)) (D (Fun Num Num)))
-diter = SLam (DLam (DRec (DSuc (Var hd)) (DCst 1) (Var (tl hd))))
+diter = SLam (DLam (DIt (DSuc (Var hd)) (DCst 1) (Var (tl hd))))
+
 
 sack : AExp [ D (Fun (Fun Num Num) (Fun Num Num)) ] (SFun SNum (D (Fun Num Num)))
-sack = SLam (SRec (Var hd) (DLam (DSuc (Var hd))) (SLam (DApp (Var (tl (tl hd))) (Var hd))))
+sack = SLam (SIt (Var hd) (DLam (DSuc (Var hd))) (SLam (DApp (Var (tl (tl hd))) (Var hd))))
 
 sack-m : ℕ → Exp [] (Fun Num Num)
 sack-m m = pe (SApp sack (SCst m)) (iter ∷ [])
 
 sack' : AExp [ SFun (D (Fun Num Num)) (D (Fun Num Num)) ] (SFun SNum (D (Fun Num Num)))
-sack' = SLam (SRec (Var hd) (DLam (DSuc (Var hd))) (Var (tl hd)))
+sack' = SLam (SIt (Var hd) (DLam (DSuc (Var hd))) (Var (tl hd)))
 
 sack'-m : ℕ → Exp [] (Fun Num Num)
 sack'-m m = pe (SApp (SLam (SApp sack' (SCst m))) diter) []
+
+--application for recursors
+
+
+Add : AExp [] (SFun SNum (D (Fun Num Num)))
+Add = SLam (DLam (SRec (Var hd) (SLam (SLam (DSuc (Var hd)))) (Var (tl hd))))
+
+
+pe_Add : ℕ → Exp [] (Fun Num Num)
+pe_Add n = pe (SApp Add (SCst n)) []
+
+
+Mult : AExp [] (SFun SNum (D (Fun Num Num)))
+Mult = SLam (DLam (SRec (DCst 0) (SLam (SLam (DAdd (Var hd) (Var (tl (tl hd)))))) (Var (tl hd))))
+
+
+Multn : ℕ → AExp [] (D (Fun Num Num))
+Multn n = SApp Mult (SCst n)
+
+pe_Mult : ℕ → Exp [] (Fun Num Num)
+pe_Mult n = pe (Multn n) []
+
+
+
+dMult : ∀ {Δ} → AExp Δ (D (Fun Num (Fun Num Num)))
+dMult = DLam (DLam (DRec (DCst 0) (DLam (DLam (DAdd (Var hd) (Var (tl (tl hd)))))) (Var (tl hd))))
+
+
+pe_dMult3 : Exp [] (Fun Num Num)
+pe_dMult3 = pe (DApp dMult (DCst 3)) []
+
+
+Power : AExp [] (SFun SNum (D (Fun Num Num)))
+Power = SLam (DLam (DApp (DLam
+        (SIt (Var (tl (tl hd)))
+              (DCst 1)
+              (SLam (DApp (DApp (Var (tl hd)) (Var hd)) (Var (tl (tl hd))))))) dMult))
+
+
+pe_Power : ℕ → Exp [] (Fun Num Num)
+pe_Power n = pe (SApp Power (SCst n)) []
+
+
+Predecessor : AExp [] (SFun SNum SNum)
+Predecessor = SLam (SRec (SCst 0) (SLam (SLam (Var (tl hd)))) (Var hd))
+
+
+
+pe_Predecessor : ℕ → ℕ
+pe_Predecessor n = pe {[]} (SApp Predecessor (SCst n)) []
+
+
+Iter : Exp [] (Fun (Fun Num Num) (Fun Num Num))
+Iter = ELam (ELam (ERec (ECst 1) (ELam (EVar (tl (tl hd)))) (ESuc (EVar hd))))
+
+
+Ack : Exp [ Fun (Fun Num Num) (Fun Num Num) ] (Fun Num (Fun Num Num))
+Ack = ELam (ERec (ELam (ESuc (EVar hd))) (ELam (EVar (tl (tl hd)))) (EVar hd))
+
+
+Ack-m-n : ℕ → ℕ → ℕ
+Ack-m-n m n = ev (EApp (EApp Ack (ECst m)) (ECst n)) (ev Iter [] ∷ [])
+    
+
+Siter : AExp [] (SFun (D (Fun Num Num)) (SFun SNum (D Num)))
+Siter = SLam (SLam (SRec (DCst 1) (SLam (SLam (DApp (Var (tl (tl (tl hd)))) (Var hd)))) (SSuc (Var hd))))
+
+
+Diter : AExp [] (SFun (D (Fun Num Num)) (D (Fun Num Num)))
+Diter = SLam (DLam (DRec (DCst 1) (DLam (Var (tl (tl hd)))) (DSuc (Var hd))))
+
+
+Sack : AExp [ D (Fun (Fun Num Num) (Fun Num Num)) ] (SFun SNum (D (Fun Num Num)))
+Sack = SLam (SRec (DLam (DSuc (Var hd))) (SLam (SLam (DApp (Var (tl (tl (tl hd)))) (Var hd)))) (Var hd))
+
+
+Sack-m : ℕ → Exp [] (Fun Num Num)
+Sack-m m = pe (SApp Sack (SCst m)) (Iter ∷ [])
+
+
+Sack' : AExp [ SFun (D (Fun Num Num)) (D (Fun Num Num)) ] (SFun SNum (D (Fun Num Num)))
+Sack' = SLam (SRec (DLam (DSuc (Var hd))) (SLam (Var (tl (tl hd)))) (Var hd))
+
+
+Sack'-m : ℕ → Exp [] (Fun Num Num)
+Sack'-m m = pe (SApp (SLam (SApp Sack' (SCst m))) Diter) []
 
 ---------------------------------------------------
 -- TODO: examples for higher order lifting
