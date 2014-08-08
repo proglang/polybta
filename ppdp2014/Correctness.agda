@@ -1,5 +1,3 @@
-\agdaIgnore{
-\begin{code}
 module Correctness where
 open import Lib
 open import BaseFull
@@ -8,24 +6,22 @@ open import CtxExtension
 open import Data.Empty
 
 
-\end{code}}
-\agdaSnippet\btaResidualize{
-\begin{code}
+
+
 residualize : ∀ {α Δ} → AExp Δ α → Exp (map erase Δ) (erase α)
-\end{code}}
-\agdaIgnore{
-\begin{code}
+
+
 residualize (Var x) = EVar (mapIdx erase  x)
 residualize (SCst x) = ECst x
 residualize (SSuc e) = ESuc (residualize e)
-residualize (SRec eₙ e₀ eₛ) = ERec (residualize eₙ) (residualize e₀) (residualize eₛ)
+residualize (SRec n v u) = ERec (residualize n) (residualize v) (residualize u) 
 residualize (SAdd e e₁) = EAdd (residualize e) (residualize e₁)
 residualize (SLam e) = ELam (residualize e)
 residualize (SApp e e₁)  = EApp (residualize e) (residualize e₁)
 residualize (DCst x)  = ECst x
 residualize (DSuc e) = ESuc (residualize e)
 residualize (DAdd e e₁) = EAdd (residualize e) (residualize e₁)
-residualize (DRec eₙ e₀ eₛ) = ERec (residualize eₙ) (residualize e₀) (residualize eₛ)
+residualize (DRec v u n) = ERec (residualize v) (residualize u) (residualize n)
 residualize (DLam e)  = ELam (residualize e)
 residualize (DApp e e₁)  = EApp (residualize e) (residualize e₁)
 residualize (SPair e e₁)  = EPair (residualize e)  (residualize e₁)
@@ -44,84 +40,72 @@ residualize (Lift lftbl e) = residualize e
 
 -- Extending a value environment according to an extension of a
 -- type environment
-\end{code}}
-\agdaSnippet\btaEnvExt{
-\begin{code}
+
+
 data _⊢_↝_ :
   ∀ {Γ Γ'} → Γ ↝ Γ' → Env Γ → Env Γ' → Set where
   refl : ∀ {Γ} {ρ : Env Γ} → refl ⊢ ρ ↝ ρ
   extend : ∀ {τ Γ Γ' ρ ρ'} → {Γ↝Γ' : Γ ↝ Γ'} →
              (v : TInt τ) → Γ↝Γ' ⊢ ρ ↝ ρ' →
              extend Γ↝Γ' ⊢ ρ ↝ (v ∷ ρ')
-\end{code}}
-\agdaSnippet\btaEnvExtTrans{
-\begin{code}
+
+
 _⊕ρ_ : ∀ {Γ Γ' Γ''} {Γ↝Γ' : Γ ↝ Γ'} {Γ'↝Γ'' : Γ' ↝ Γ''}
   {ρ ρ' ρ''} → 
   Γ↝Γ' ⊢ ρ ↝ ρ' → Γ'↝Γ'' ⊢ ρ' ↝ ρ'' →
   let Γ↝Γ'' = Γ↝Γ' ⊕ Γ'↝Γ'' in
   Γ↝Γ'' ⊢ ρ ↝ ρ'' 
-\end{code}}
-\agdaIgnore{
-\begin{code}
+
+
 _⊕ρ_ ρ↝ρ' (refl) = ρ↝ρ'
 _⊕ρ_ ρ↝ρ' (extend v ρ'↝ρ'') = extend v (ρ↝ρ' ⊕ρ ρ'↝ρ'')
 
 -- Equivalent Imp Γ α and EImp τ values (where τ = sinj₂ipα α). As
 -- (v : Imp Γ α) is not necessarily closed, equivalence is defined for
 -- the closure (Env Γ, ImpΓ α)
-\end{code}}
-\agdaSnippet\btaExtensionality{
-\begin{code}
+
+
 postulate ext : ∀ {τ₁ τ₂} {f g : TInt τ₁ → TInt τ₂} →
                 (∀ x → f x ≡ g x) → f ≡ g
-\end{code}}
-\agdaSnippet\btaEquivSig{
-\begin{code}
+
+
 Equiv : ∀ {α Γ} →
   (ρ : Env Γ) → (vₐ : ATInt Γ α) → (v : TInt (erase α)) → Set
-\end{code}}
-\agdaSnippet\btaEquivNat{
-\begin{code}
+
+
 Equiv {SNum} ρ nₐ n = nₐ ≡ n 
-\end{code}}
-\agdaSnippet\btaEquivDyn{
-\begin{code}
+
+
 Equiv {D x} ρ e v = ev e ρ ≡ v
-\end{code}}
-\agdaSnippet\btaEquivFun{
-\begin{code}
+
+
 Equiv {SFun α₁ α₂} {Γ} ρ fₐ f =
   ∀ {Γ' ρ' Γ↝Γ'} → (Γ↝Γ' ⊢ ρ ↝ ρ') →
      {xₐ : ATInt Γ' α₁} → {x : TInt (erase α₁)} →
      Equiv ρ' xₐ x → Equiv ρ' (fₐ Γ↝Γ' xₐ) (f x)
-\end{code}}
-\agdaSnippet\btaEquiv{
-\begin{code}
+
+
 Equiv {SPrd α α₁} ρ (proj₁ , proj₂) (proj₁' , proj₂') =
   Equiv ρ proj₁ proj₁' × Equiv ρ proj₂ proj₂' 
 Equiv {SSum α α₁} ρ (inj₁ a) (inj₁ a₁) = Equiv ρ a a₁
 Equiv {SSum α α₁} ρ (inj₂ b) (inj₂ b₁) = Equiv ρ b b₁ 
 Equiv {SSum α α₁} ρ (inj₁ a) (inj₂ b) = ⊥  
 Equiv {SSum α α₁} ρ (inj₂ b) (inj₁ a) = ⊥  
-\end{code}}
-\agdaIgnore{
-\begin{code}
+
+
 
 
 -- Equivalence of AEnv and Env environments. They need to provide
 -- Equivalent bindings for a context Δ/sinj₂ipΔ Δ. Again, the
 -- equivalence is defined for a closure (Env Γ', AEnv Γ' Δ).
-\end{code}}
-\agdaSnippet\btaEquivEnvSig{
-\begin{code}
+
+
 data Env-Equiv {Γ' : _} (ρ : Env Γ') :
   ∀ {Δ} → (ρ' : AEnv Γ' Δ) → (ρ'' : Env (map erase Δ))
   → Set where
 -- ...
-\end{code}}
-\agdaSnippet\btaEquivEnv{
-\begin{code}
+
+
   [] : Env-Equiv ρ [] []
   cons : ∀ {α Δ} → let τ = erase α
                        Γ = map erase Δ in
@@ -130,10 +114,8 @@ data Env-Equiv {Γ' : _} (ρ : Env Γ') :
           (va : ATInt Γ' α) → (v : TInt τ) → 
           Equiv ρ va v → 
               Env-Equiv ρ (va ∷ ρ') (v ∷ ρ'')
-\end{code}}
 
-\agdaIgnore{
-\begin{code}
+
 
 -- Ternary helper relation for environment extensions, analogous to _↝_↝_ for contexts
 data _⊢_↝_↝_⊣ : ∀ { Γ Γ' Γ''} → Γ ↝ Γ' ↝ Γ'' → Env Γ → Env Γ' → Env Γ'' → Set where
@@ -174,8 +156,8 @@ elevate-≡ ρ↝ρ' (EVar x) = lookup-elevate2-≡ ρ↝ρ' x
 elevate-≡ ρ↝ρ' (ECst x) = refl
 elevate-≡ ρ↝ρ' (ESuc e) with elevate-≡ ρ↝ρ' e
 ... | IA = cong suc IA
-elevate-≡ ρ↝ρ' (ERec e e₀ e₁) with elevate-≡ ρ↝ρ' e | elevate-≡ ρ↝ρ' e₀ | elevate-≡ ρ↝ρ' e₁
-... | IA | IA₀ | IA₁ = cong₃ natrec IA IA₀ IA₁
+elevate-≡ ρ↝ρ' (ERec eₙ e₀ eₛ) with elevate-≡ ρ↝ρ' eₙ | elevate-≡ ρ↝ρ' e₀ | elevate-≡ ρ↝ρ' eₛ 
+... | IN | I0 | IS = cong₃ natrec IN I0 IS
 elevate-≡ ρ↝ρ' (EAdd e e₁) with elevate-≡ ρ↝ρ' e | elevate-≡ ρ↝ρ' e₁
 ... | IA1 | IA2 = cong₂ _+_ IA1 IA2
 elevate-≡ {Γ↝Γ'↝Γ'' = Γ↝Γ'↝Γ''}
@@ -203,9 +185,8 @@ elevate-≡ {ρ = ρ}
 ... | inj₂ y = elevate-≡ (extend ρ↝ρ' y) e₂ 
 
 
-\end{code}}
-\agdaSnippet\btaIntShiftEquiv{
-\begin{code}
+
+
 int↑-equiv : ∀ {α Γ Γ'} → 
                  {Γ↝Γ' : Γ ↝ Γ'} →
                  (va : ATInt Γ α) (v : TInt (erase α)) →
@@ -213,9 +194,8 @@ int↑-equiv : ∀ {α Γ Γ'} →
                  Γ↝Γ' ⊢ ρ ↝ ρ' → 
                  Equiv ρ va v →
                  Equiv ρ' (int↑ Γ↝Γ' va) v
-\end{code}} 
-\agdaIgnore{
-\begin{code}
+
+
 int↑-equiv va v {.ρ'} {ρ'} (refl) eq = eq 
 int↑-equiv {SNum} va v (extend v₁ ρ↝ρ') eq = eq
 int↑-equiv {SFun α α₁} va v (extend v₁ ρ↝ρ') eq = 
@@ -305,40 +285,40 @@ natrec-correct :
           (Γ' : List Type)
           (ρ' : AEnv Γ' Δ) (ρ'' : Env (map erase Δ))
           (α : _)
-          (e₀ : AExp Δ α) (e₁ : AExp Δ (SFun α α))
+          (e₀ : AExp Δ α) (e₁ : AExp Δ (SFun SNum (SFun α α)))
           (env'  : Env Γ')
           (IA₀ : Equiv env' (pe e₀ ρ') (ev (residualize e₀) ρ'')) →
-          (IA₁ : {Γ₁' : List Type} {ρ₁' : Env Γ₁'} {Γ↝Γ' : Γ' ↝ Γ₁'} →
+          (IA₁ : {m₁ : _} → {m₂ : _} → m₁ ≡ m₂ → 
+                 {Γ₁' : List Type} {ρ₁' : Env Γ₁'} {Γ↝Γ' : Γ' ↝ Γ₁'} →
                  Γ↝Γ' ⊢ env' ↝ ρ₁' →
                  {xₐ : ATInt Γ₁' α}
                  {x : TInt (erase α)} →
                  Equiv ρ₁' xₐ x →
-                 Equiv ρ₁' (pe e₁ ρ' Γ↝Γ' xₐ) (ev (residualize e₁) ρ'' x)) →
+                 Equiv ρ₁' (pe e₁ ρ' Γ↝Γ' m₁ refl xₐ) (ev (residualize e₁) ρ'' m₂  x)) →
           Equiv env'
-          (natrec n (pe e₀ ρ') (pe e₁ ρ' refl))
+          (natrec n (pe e₀ ρ') (λ n₁ → pe {Γ'} e₁ ρ' {Γ'} refl n₁ {Γ'} refl))
           (natrec n (ev (residualize e₀) ρ'') (ev (residualize e₁) ρ''))
-natrec-correct zero Γ' ρ' ρ'' α e₀ e₁ env' IA₀ IA₁ = IA₀
+natrec-correct zero Γ' ρ' ρ'' α e₀ e₁ env' IA₀ IA₁ =  IA₀
 natrec-correct (suc n) Γ' ρ' ρ'' α e₀ e₁ env' IA₀ IA₁ 
   with natrec-correct n Γ' ρ' ρ'' α e₀ e₁ env' IA₀ IA₁ 
-... | IA = IA₁ refl IA
-\end{code}}
-\agdaSnippet\btaPeCorrect{
-\begin{code}
+... | IA = IA₁ refl refl IA
+
+
 pe-correct : ∀ { α Δ Γ' } →
   (e : AExp Δ α) →
   (ρ : Env Γ') →
   {ρ' : AEnv Γ' Δ} → {ρ'' : Env (map erase Δ)} → 
   Env-Equiv ρ ρ' ρ'' → 
   Equiv ρ (pe e ρ') (ev (residualize e) ρ'')
-\end{code}} 
-\agdaIgnore{
-\begin{code}
+
+
 pe-correct (Var x) env' eqenv = lookup-equiv env' eqenv x
 pe-correct (SCst x) env' eqenv = refl
 pe-correct (SSuc e) env' eqenv rewrite pe-correct e env' eqenv = refl
-pe-correct {Δ = Δ} {Γ' = Γ'} (SRec {α} e e₀ e₁) env' {ρ'} {ρ''} eqenv
-  with pe-correct e env' eqenv | pe-correct e₀ env' eqenv | pe-correct e₁ env' eqenv
-... | IA | IA₀ | IA₁ rewrite IA = natrec-correct (ev (residualize e) ρ'') Γ' ρ' ρ'' α e₀ e₁ env' IA₀ IA₁
+pe-correct {Δ = Δ} {Γ' = Γ'} (SRec {α} n v u) env' {ρ'} {ρ''} eqenv 
+  with pe-correct n env' eqenv | pe-correct v env' eqenv | pe-correct u env' eqenv 
+... | IN | IV | IU rewrite IN = natrec-correct (ev (residualize n) ρ'') Γ' ρ' ρ'' α v u env' IV 
+    (λ m₁≡m₂ Γ↝Γ'⊢env'↝ρ₁' → IU Γ↝Γ'⊢env'↝ρ₁' m₁≡m₂ refl)
 pe-correct (SAdd e e₁) env' eqenv 
   rewrite pe-correct e env' eqenv | pe-correct e₁ env' eqenv = refl
 pe-correct (SLam e) env' eqenv = 
@@ -398,12 +378,12 @@ pe-correct (DCase e e₁ e₂) env' {aenv} {env} eqenv with ev (pe e aenv) env' 
 pe-correct (Lift x e) env' {aenv} {env} eqenv  
   with pe-correct e env' eqenv 
 ... | IA = lift-correct x env' (pe e aenv) (ev (residualize e) env) IA 
-\end{code}}
-\agdaSnippet\btaPeCorrectDyn{
-\begin{code}
+
+
 pe-correct-dyn :
   ∀ { τ } → (e : AExp [] (D τ)) →
   ev (pe e []) [] ≡ (ev (residualize e) [])
 pe-correct-dyn e = pe-correct e [] []
-\end{code}}
+
+
 
