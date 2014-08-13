@@ -20,7 +20,7 @@ data Exp (G : Cx) : Type -> Set where
   Var : forall {t} -> t ∈ G -> Exp G t
   Lam : forall {t2} t1 -> Exp (t1 ∷ G) t2 -> Exp G (Fun t1 t2)
   App : forall {t1 t2} -> Exp G (Fun t1 t2) -> Exp G t1 -> Exp G t2
-  Fix : forall {t1 t2} -> Exp (Fun t1 t2 ∷ G) (Fun t1 t2) -> Exp G (Fun t1 t2)
+  Fix : forall {t} -> Exp (t ∷ G) t -> Exp G t
   
 module Examples where
   loop : forall {G} -> Exp G (Fun Num Num) 
@@ -155,7 +155,7 @@ module TwoLevel where
     DLam : forall {t2} t1 -> AExp (D t1 ∷ G) (D t2) -> AExp G (D (Fun t1 t2))
     SApp : forall {t1 t2} -> AExp G (SFun t1 t2) -> AExp G t1 -> AExp G t2
     DApp : forall {t1 t2} -> AExp G (D (Fun t1 t2)) -> AExp G (D t1) -> AExp G (D t2)
-    DFix : forall {t1 t2} -> AExp (D (Fun t1 t2) ∷ G) (D (Fun t1 t2)) -> AExp G (D (Fun t1 t2))
+    DFix : forall {t} -> AExp (D t ∷ G) (D t ) -> AExp G (D t)
     
   ATInt : Cx -> AType -> Set
   ATInt G SNum = ℕ
