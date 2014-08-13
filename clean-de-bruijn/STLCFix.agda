@@ -40,7 +40,7 @@ module Examples where
   
 module Evaluation where
   
-open import Data.Maybe
+open import Data.Maybe hiding (map)
 open import Category.Functor
 open import Category.Monad
 import Level
@@ -97,7 +97,7 @@ module Step where
   ⟦ Num ⟧ = ℕ
   ⟦ Fun t1 t2 ⟧ = ⟦ t1 ⟧ -> Maybe ⟦ t2 ⟧ 
   
-  open Env (λ t -> Maybe ⟦ t ⟧)
+  open Env (λ t -> Maybe ⟦ t ⟧) public
     
   ev : forall {G t} -> (fuel : ℕ) -> Env G -> Exp G t -> Maybe ⟦ t ⟧
   ev zero env e = nothing
@@ -124,3 +124,118 @@ module Step where
     
     ex3 : ev 3000 [] nofix ≡ just 42
     ex3 = refl
+
+module TwoLevel where
+
+  open import CtxExtension public
+
+  data AType : Set where
+    D : Type -> AType
+    SFun : AType -> AType -> AType
+    SNum : AType
+    
+  ACx : Set
+  ACx = List AType
+  
+  data AExp (G : ACx) : AType -> Set where
+    Var : forall {t} -> t ∈ G -> AExp G t
+    SC : ℕ -> AExp G SNum
+    DC : ℕ -> AExp G (D Num)
+    SNatCase : forall {t} -> AExp G SNum -- condition
+                          -> AExp G t -- zero case
+                          -> AExp (SNum ∷ G) t -- succ case
+                          -> AExp G t
+    DNatCase : forall {t} -> AExp G (D Num) -- condition
+                          -> AExp G t -- zero case
+                          -> AExp (D Num ∷ G) t -- succ case
+                          -> AExp G t
+    SSuc : AExp G SNum -> AExp G SNum
+    DSuc : AExp G (D Num) -> AExp G (D Num)
+    SLam : forall {t2} t1 -> AExp (t1 ∷ G) t2 -> AExp G (SFun t1 t2)
+    DLam : forall {t2} t1 -> AExp (D t1 ∷ G) (D t2) -> AExp G (D (Fun t1 t2))
+    SApp : forall {t1 t2} -> AExp G (SFun t1 t2) -> AExp G t1 -> AExp G t2
+    DApp : forall {t1 t2} -> AExp G (D (Fun t1 t2)) -> AExp G (D t1) -> AExp G (D t2)
+    DFix : forall {t1 t2} -> AExp (D (Fun t1 t2) ∷ G) (D (Fun t1 t2)) -> AExp G (D (Fun t1 t2))
+    
+  ATInt : Cx -> AType -> Set
+  ATInt G SNum = ℕ
+  ATInt G (SFun t1 t2) =
+    forall {G'} -> G ↝ G' -> ATInt G' t1 -> (ATInt G' t2)
+  ATInt G (D t) = Exp G t
+ 
+  data AEnv (G : Cx) : ACx -> Set where
+    [] : AEnv G []
+    _∷_ : forall {t E} -> ATInt G t -> AEnv G E -> AEnv G (t ∷ E)
+    
+  lookup : forall {t E G} -> t ∈ E -> AEnv G E -> ATInt G t
+  lookup hd (v ∷ env) = v
+  lookup (tl x) (_ ∷ env) = lookup x env 
+  
+  
+  pe : ∀ { Γ Δ α } → 
+           AExp Δ α → AEnv Γ Δ → ATInt Γ α
+  pe = {!!}
+  
+    
+module LogicalRelation
+       where
+        
+  open Step
+  open TwoLevel
+
+  erase : AType -> Type
+  erase (D x) = x
+  erase (SFun s1 s2) = Fun (erase s1) (erase s2)
+  erase SNum = Num
+  
+
+  data _⊢_↝_ :
+    ∀ {Γ Γ'} → Γ ↝ Γ' → Env Γ → Env Γ' → Set where
+    refl : ∀ {Γ} {ρ : Env Γ} → refl ⊢ ρ ↝ ρ
+    extend : ∀ {τ Γ Γ' ρ ρ'} → {Γ↝Γ' : Γ ↝ Γ'} →
+               (v :  ⟦ τ ⟧) → Γ↝Γ' ⊢ ρ ↝ ρ' →
+               extend Γ↝Γ' ⊢ ρ ↝ (just v ∷ ρ')
+
+  _⊕ρ_ : ∀ {Γ Γ' Γ''} {Γ↝Γ' : Γ ↝ Γ'} {Γ'↝Γ'' : Γ' ↝ Γ''}
+    {ρ ρ' ρ''} → 
+    Γ↝Γ' ⊢ ρ ↝ ρ' → Γ'↝Γ'' ⊢ ρ' ↝ ρ'' →
+    let Γ↝Γ'' = Γ↝Γ' ⊕ Γ'↝Γ'' in
+    Γ↝Γ'' ⊢ ρ ↝ ρ'' 
+  _⊕ρ_ ρ↝ρ' (refl) = ρ↝ρ'
+  _⊕ρ_ ρ↝ρ' (extend v ρ'↝ρ'') = extend v (ρ↝ρ' ⊕ρ ρ'↝ρ'')
+
+  Equiv-term : forall {s : AType} {G} -> (env : Env G) -> (w : ATInt G s) -> (mv : Maybe ⟦ erase s ⟧) -> Set
+  Equiv-term {D x} env w (just v) = (∃₂ (λ v' n -> (ev n env w ≡ just v') × v ≡ v'))
+  Equiv-term {SFun s1 s2} {G} env w (just v) = 
+    ∀ {Γ' ρ' Γ↝Γ'} → (Γ↝Γ' ⊢ env ↝ ρ') →
+       {xₐ : ATInt Γ' s1} → {x : ⟦ (erase s1) ⟧} →
+       Equiv-term ρ' xₐ (just x) → Equiv-term ρ' (w Γ↝Γ' xₐ) (v x)
+  Equiv-term {SNum} env w (just v) = w ≡ v
+  Equiv-term env w nothing = ⊤
+  
+
+  Equiv-div : forall {s : AType} {G} (min-steps : ℕ) (env : Env G) (w : ATInt G s) (v : Maybe ⟦ erase s ⟧) -> Set
+  Equiv-div {D x} min-steps env w (just v) = ⊤
+  Equiv-div {SNum} min-steps env w (just v) = ⊤
+  Equiv-div {SFun s1 s2} min-steps env w (just v) = 
+    ∀ {Γ' ρ' Γ↝Γ'} → (Γ↝Γ' ⊢ env ↝ ρ') →
+       {xₐ : ATInt Γ' s1} → 
+       ({x : ⟦ (erase s1) ⟧} → Equiv-term ρ' xₐ (just x) → Equiv-div min-steps ρ' (w Γ↝Γ' xₐ) (v x))
+
+  Equiv-div {D x} min-steps env w nothing = ∃ (λ n' → min-steps ≤ n' × ev n' env w ≡ nothing)
+  Equiv-div {SFun s1 s2} min-steps env w nothing = ⊥
+  Equiv-div {SNum} min-steps env w nothing = ⊥
+
+  -- data Env-Equiv {Γ' : _} (ρ : Env Γ') :
+  --   ∀ {Δ} → (ρ' : AEnv Γ' Δ) → (ρ'' : Env (map erase Δ))
+  --   → Set where
+  -- -- ...
+  --   [] : Env-Equiv ρ [] []
+  --   cons : ∀ {α Δ} → let τ = erase α
+  --                        Γ = map erase Δ in
+  --           {ρ'' : Env Γ} → {ρ' : AEnv Γ' Δ} → 
+  --           Env-Equiv ρ ρ' ρ'' →
+  --           (va : ATInt Γ' α) → (v : τ) → 
+  --           Equiv ρ va v → 
+  --               Env-Equiv ρ (va ∷ ρ') (v ∷ ρ'')
+
