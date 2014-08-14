@@ -22,7 +22,7 @@ data Exp (G : Cx) : Type -> Set where
   App : forall {t1 t2} -> Exp G (Fun t1 t2) -> Exp G t1 -> Exp G t2
   Fix : forall {t} -> Exp (t ∷ G) t -> Exp G t
   
-module Examples where
+module Example-Terms where
   loop : forall {G} -> Exp G (Fun Num Num) 
   loop = Fix (Lam _ (App (Var (tl hd)) (Var hd)))
   
@@ -31,12 +31,19 @@ module Examples where
   
   
   iter : forall {G t} -> Exp G (Fun (Fun t t) (Fun t (Fun Num t)))
-  iter = Lam _ (Lam _ ((Fix (Lam _ (NatCase (Var hd) (Var (tl (tl hd))) (App (Var (tl (tl hd))) (Var hd)))))))
+  iter = Lam _ (Lam _ ((Fix (Lam _ (NatCase (Var hd)
+                                            (Var (tl (tl hd)))
+                                            (App (Var (tl (tl (tl (tl hd)))))
+                                                 (App (Var (tl (tl hd))) (Var hd)) ))))))
   
-
   inc : forall {G} -> Exp G (Fun Num Num)
   inc = (App (App iter (Lam _ (Suc (Var hd)))) (C 1))
+
+  inc' : forall {G} -> Exp G (Fun Num Num)
+  inc' = (Fix (Lam _ (NatCase (Var hd) (C 1) (Suc (App (Var (tl (tl hd))) (Var hd))))))
   
+  add : forall {G} -> Exp G (Fun Num (Fun Num Num))
+  add = (Lam _ (App (App iter (Lam _ (App inc (Var hd)))) (Var hd)))
   
 module Evaluation where
   
@@ -79,13 +86,19 @@ module Step where
   ev zero _         (Fix f) = nothing
 
   module EvalExamples where
-    open Examples
+    open Example-Terms
     
     ex1 : ev 3000 [] (App loop (C 42)) ≡ nothing
     ex1 = refl
+
+    ex2' : ev 3000 [] (NatCase (C 0) (C 5) (Var hd)) ≡ just 5
+    ex2' = refl
+
+    ex2'' : ev 3000 [] (NatCase (C 42) (C 5) (Var hd)) ≡ just 41
+    ex2'' = refl
   
-    ex2 : ev 3000 [] (App inc (C 3)) ≡ just (suc zero)
-    ex2 = refl
+    ex2 : ev 3000 [] (App inc (C 3)) ≡ just 4
+    ex2 = refl -- refl
     
     ex3 : ev 3000 [] nofix ≡ just 42
     ex3 = refl
