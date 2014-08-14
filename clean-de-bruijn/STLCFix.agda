@@ -56,41 +56,6 @@ module Env (⟦_⟧ : Type -> Set) where
   lookup hd (v ∷ env) = v
   lookup (tl x) (_ ∷ env) = lookup x env 
 
--- We could just ignore the fixpoint...
-module NoFix where
-
-  ⟦_⟧ : Type -> Set
-  ⟦ Num ⟧ = ℕ
-  ⟦ Fun t1 t2 ⟧ = ⟦ t1 ⟧ -> Maybe ⟦ t2 ⟧ 
-  
-  open Env (⟦_⟧)
-    
-  ev : forall {G t} -> Env G -> Exp G t -> Maybe ⟦ t ⟧
-  ev env (C x) = just x
-  ev env (NatCase e e₁ e₂) with ev env e
-  ... | just zero = ev env e₁
-  ... | just (suc n) = ev (n ∷ env) e₂
-  ... | nothing = nothing
-  ev env (Suc e) = suc <$> ev env e
-  ev env (Var x) = just (lookup x env)
-  ev env (Lam t1 e) = just (λ x → ev (x ∷ env) e)
-  ev env (App e e₁) = join (ev env e ⊛ ev env e₁)
-  ev env (Fix e) = nothing
-  
-  module EvalExamples where
-    open Examples
-    
-    ex1 : ev [] loop ≡ nothing
-    ex1 = refl
-  
-    ex2 : ev [] (App inc (C 3)) ≡ nothing
-    ex2 = refl
-    
-    ex3 : ev [] nofix ≡ nothing
-    ex3 = refl
-    
-
--- More useful: step-indexing evaluation
 module Step where
 
   ⟦_⟧ : Type -> Set
