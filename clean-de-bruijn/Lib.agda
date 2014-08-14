@@ -2,6 +2,7 @@
 module Lib where
 
 open import Data.Nat public hiding (_<_) 
+open import Data.Nat as Nat
 open import Data.Unit public using (⊤ ; tt)
 open import Data.Empty public using (⊥)
 open import Function public using (_∘_)
@@ -10,6 +11,10 @@ open import Data.Product public using (_×_ ; _,_ ; proj₁ ; proj₂ ; Σ ; ∃
 open import Data.Sum public using (_⊎_ ; [_,_]′ ; inj₁ ; inj₂)
 open import Relation.Nullary public
 open import Relation.Binary.PropositionalEquality public hiding ([_])
+
+
+open import Relation.Binary 
+open DecTotalOrder Nat.decTotalOrder public using () renaming (refl to ≤-refl) 
 
 open import Category.Functor public
 

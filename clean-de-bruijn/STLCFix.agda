@@ -23,8 +23,12 @@ data Exp (G : Cx) : Type -> Set where
   Fix : forall {t} -> Exp (t ∷ G) t -> Exp G t
   
 module Example-Terms where
-  loop : forall {G} -> Exp G (Fun Num Num) 
-  loop = Fix (Lam _ (App (Var (tl hd)) (Var hd)))
+
+  loop : forall {G t} -> Exp G t
+  loop = Fix (Var (hd)) 
+
+  loop-fun : forall {G} -> Exp G (Fun Num Num) 
+  loop-fun = Fix (Lam _ (App (Var (tl hd)) (Var hd)))
   
   nofix : forall {G} -> Exp G Num
   nofix = App (Fix (Lam _ (C 42))) (C 5)
@@ -88,7 +92,7 @@ module Step where
   module EvalExamples where
     open Example-Terms
     
-    ex1 : ev 3000 [] (App loop (C 42)) ≡ nothing
+    ex1 : ev 3000 [] (App loop-fun (C 42)) ≡ nothing
     ex1 = refl
 
     ex2' : ev 3000 [] (NatCase (C 0) (C 5) (Var hd)) ≡ just 5
@@ -184,24 +188,65 @@ module TwoLevel where
   
   
   pe : ∀ { Γ Δ α } → 
-           AExp Δ α → AEnv Γ Δ → ATInt Γ α
-  pe (Var x) env = lookup x env
-  pe (SC x) env = x
-  pe (DC x) env = C x
-  pe (SNatCase e e₁ e₂) env with pe e env
-  ... | zero = pe e₁ env
-  ... | suc n = pe e₂ (n ∷ env)
-  pe (DNatCase e e₁ e₂) env = NatCase (pe e env) (pe e₁ env) (pe e₂ (addFresh env))
-  pe (SSuc e) env = pe e env
-  pe (DSuc e) env = Suc (pe e env)
-  pe (SLam t1 e) env = λ G↝G' x → pe e (x ∷ env↑ G↝G' env)
-  pe (DLam t1 e) env = Lam t1 (pe e (addFresh env))
-  pe (SApp e e₁) env = pe e env refl (pe e₁ env)
-  pe (DApp e e₁) env = App (pe e env) (pe e₁ env)
-  pe (DFix e) env = {! Fix!}
+           AEnv Γ Δ → AExp Δ α → ATInt Γ α
+  pe env (Var x) = lookup x env
+  pe env (SC x) = x
+  pe env (DC x) = C x
+  pe env (SNatCase e e₁ e₂) with pe env e 
+  ... | zero = pe env e₁
+  ... | suc n = pe (n ∷ env) e₂ 
+  pe env (DNatCase e e₁ e₂) = NatCase (pe env e) (pe env e₁) (pe (addFresh env) e₂)
+  pe env (SSuc e) = pe env e
+  pe env (DSuc e) = Suc (pe env e)
+  pe env (SLam t1 e) = λ G↝G' x → pe (x ∷ env↑ G↝G' env) e
+  pe env (DLam t1 e) = Lam t1 (pe (addFresh env) e)
+  pe env (SApp e e₁) = pe env  e refl (pe env e₁)
+  pe env (DApp e e₁) = App (pe env e) (pe env e₁)
+  pe env (DFix e) = Fix (pe (addFresh env) e)
   
+module TermEquivalence where
+  open Step
+  open import Coinduction
+
+  -- Equivalence of base language terms
+  data EqTerm {G : Cx} {t : Type} (n : ℕ) : Exp G t -> Exp G t -> Set where
+    eq : forall {n' e1 e2} env ->
+         n ≤ n' ->
+         ev n' env  e1 ≡ ev n' env e2 ->
+         ∞ (EqTerm (suc n) e1 e2) -> EqTerm n e1 e2
+         
+  syntax EqTerm n e1 e2 = [ e1 ≡∞ e2 ] n
+         
+  -- _≡∞_ : forall {G t} -> Exp G t -> Exp G t -> Set
+  -- _≡∞_ {G} {t} = EqTerm {G} {t} 0
+         
+  module Examples where
+  
+    open Example-Terms using (add ; inc ; loop ; loop-fun)
+    open import Data.Nat.Properties
     
-module LogicalRelation
+    postulate ext : ∀ {τ₁ τ₂} {f g : ⟦ τ₁ ⟧ → ⟦ τ₂ ⟧ } →
+                    (∀ x → f x ≡ g x) → f ≡ g
+
+                    
+    -- helper to assert closed contexts
+    close : forall {t} -> Exp [] t -> Exp [] t
+    close x = x
+
+    ex1 : forall {n} -> [ close (C 5) ≡∞ (Suc (C 4)) ] n
+    ex1 = eq [] ≤-refl refl (♯ ex1) 
+
+    ex2 : forall {n} -> [ close (C 2) ≡∞ (App inc (C 1)) ] n
+    ex2 = eq [] (≤-steps 3 ≤-refl) refl (♯ ex2) 
+    
+    ex3 : forall {n} -> [ close (C 5) ≡∞ (App (App add (C 3)) (C 2)) ] n
+    ex3 = eq [] (≤-steps 20 ≤-refl) refl (♯ ex3)
+    
+    ex-loop : forall {n} -> ( [ close (App loop (C 0)) ≡∞ (App loop-fun (C 1))] n ) 
+    ex-loop {zero} = eq [] ≤-refl refl (♯ ex-loop)
+    ex-loop {suc n} = eq [] ≤-refl {! f (ex-loop {n})!} (♯ ex-loop) --TODO: not sure if this is accepted by the termination checker
+    
+module Correctness
        where
         
   open Step
@@ -212,6 +257,8 @@ module LogicalRelation
   erase (SFun s1 s2) = Fun (erase s1) (erase s2)
   erase SNum = Num
   
+  
+
 
   data _⊢_↝_ :
     ∀ {Γ Γ'} → Γ ↝ Γ' → Env Γ → Env Γ' → Set where
@@ -227,6 +274,8 @@ module LogicalRelation
     Γ↝Γ'' ⊢ ρ ↝ ρ'' 
   _⊕ρ_ ρ↝ρ' (refl) = ρ↝ρ'
   _⊕ρ_ ρ↝ρ' (extend v ρ'↝ρ'') = extend v (ρ↝ρ' ⊕ρ ρ'↝ρ'')
+  
+  
 
   -------------------------------------------------------------------------------- 
   -- Futile attempt for the logical relation
