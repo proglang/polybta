@@ -215,6 +215,8 @@ module TermEquivalence where
   data EqTerm {G : Cx} {t : Type} ( env : Env G ) (n : ℕ) : Exp G t -> Exp G t -> Set where
     eq : forall {n' e1 e2}  -> n ≤ n' -> ev n' env  e1 ≡ ev n' env e2 ->
          ∞ (EqTerm env (suc n) e1 e2) -> EqTerm env n e1 e2
+
+  eqTerm = λ G (env : Env G) t (e1 : Exp G t) (e2 : Exp G t) → ∀ {n} → ∃ (λ n' → n ≤ n' → ev n' env e1 ≡ ev n' env e2)
          
   -- syntax EqTerm [] n e1 e2 = [ e1 ≡∞ e2 ] n
          
