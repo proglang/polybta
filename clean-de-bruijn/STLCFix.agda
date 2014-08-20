@@ -26,6 +26,9 @@ module Example-Terms where
 
   loop : forall {G t} -> Exp G t
   loop = Fix (Var (hd)) 
+  
+  loop-fun' : forall {G} -> Exp G (Fun Num Num)
+  loop-fun' {G} = loop {G = G} {t = Fun Num Num}
 
   loop-fun : forall {G} -> Exp G (Fun Num Num) 
   loop-fun = Fix (Lam _ (App (Var (tl hd)) (Var hd)))
@@ -209,20 +212,18 @@ module TermEquivalence where
   open import Coinduction
 
   -- Equivalence of base language terms
-  data EqTerm {G : Cx} {t : Type} (n : ℕ) : Exp G t -> Exp G t -> Set where
-    eq : forall {n' e1 e2} env ->
-         n ≤ n' ->
-         ev n' env  e1 ≡ ev n' env e2 ->
-         ∞ (EqTerm (suc n) e1 e2) -> EqTerm n e1 e2
+  data EqTerm {G : Cx} {t : Type} ( env : Env G ) (n : ℕ) : Exp G t -> Exp G t -> Set where
+    eq : forall {n' e1 e2}  -> n ≤ n' -> ev n' env  e1 ≡ ev n' env e2 ->
+         ∞ (EqTerm env (suc n) e1 e2) -> EqTerm env n e1 e2
          
-  syntax EqTerm n e1 e2 = [ e1 ≡∞ e2 ] n
+  -- syntax EqTerm [] n e1 e2 = [ e1 ≡∞ e2 ] n
          
-  -- _≡∞_ : forall {G t} -> Exp G t -> Exp G t -> Set
-  -- _≡∞_ {G} {t} = EqTerm {G} {t} 0
+--   -- _≡∞_ : forall {G t} -> Exp G t -> Exp G t -> Set
+--   -- _≡∞_ {G} {t} = EqTerm {G} {t} 0
          
   module Examples where
   
-    open Example-Terms using (add ; inc ; loop ; loop-fun)
+    open Example-Terms using (add ; inc ; loop ; loop-fun; loop-fun')
     open import Data.Nat.Properties
     
     postulate ext : ∀ {τ₁ τ₂} {f g : ⟦ τ₁ ⟧ → ⟦ τ₂ ⟧ } →
@@ -230,89 +231,95 @@ module TermEquivalence where
 
                     
     -- helper to assert closed contexts
-    close : forall {t} -> Exp [] t -> Exp [] t
-    close x = x
+    -- close : forall {t} -> Exp [] t -> Exp [] t
+    -- close x = x
 
-    ex1 : forall {n} -> [ close (C 5) ≡∞ (Suc (C 4)) ] n
-    ex1 = eq [] ≤-refl refl (♯ ex1) 
+    ex1 : forall {n} -> EqTerm [] n (C 5) (Suc (C 4)) 
+    ex1 = eq ≤-refl refl (♯ ex1) 
 
-    ex2 : forall {n} -> [ close (C 2) ≡∞ (App inc (C 1)) ] n
-    ex2 = eq [] (≤-steps 3 ≤-refl) refl (♯ ex2) 
+    ex2 : forall {n} -> EqTerm [] n (C 2) (App inc (C 1))
+    ex2 = eq (≤-steps 3 ≤-refl) refl (♯ ex2) 
     
-    ex3 : forall {n} -> [ close (C 5) ≡∞ (App (App add (C 3)) (C 2)) ] n
-    ex3 = eq [] (≤-steps 20 ≤-refl) refl (♯ ex3)
+    ex3 : forall {n} ->  EqTerm [] n (C 5) (App (App add (C 3)) (C 2)) 
+    ex3 = eq (≤-steps 20 ≤-refl) refl (♯ ex3)
     
-    ex-loop : forall {n} -> ( [ close (App loop (C 0)) ≡∞ (App loop-fun (C 1))] n ) 
-    ex-loop {zero} = eq [] ≤-refl refl (♯ ex-loop)
-    ex-loop {suc n} = eq [] ≤-refl {! f (ex-loop {n})!} (♯ ex-loop) --TODO: not sure if this is accepted by the termination checker
+    ex-loop : forall {n} -> EqTerm [] n   (App loop-fun' (C 0)) (App loop-fun (C 1))
+    ex-loop {zero} = eq ≤-refl refl (♯ ex-loop)
+    ex-loop {suc n} with ex-loop {n}  -- it is not even possible to do pattern matching/projection of a structurally recursive call
+    ex-loop {suc n} | eq le p-equal _ = eq (s≤s le) p-equal  (♯ ex-loop) 
     
-module Correctness
-       where
+--     -- This of course works...
+--     loop-nothing : forall {t} n -> ev {t = t} n [] (App loop (C 0)) ≡ nothing
+--     loop-nothing zero = refl
+--     loop-nothing {t} (suc n) rewrite loop-nothing {t} n = refl
+    
+-- -- module Correctness
+-- --        where
         
-  open Step
-  open TwoLevel
+-- --   open Step
+-- --   open TwoLevel
 
-  erase : AType -> Type
-  erase (D x) = x
-  erase (SFun s1 s2) = Fun (erase s1) (erase s2)
-  erase SNum = Num
+-- --   erase : AType -> Type
+-- --   erase (D x) = x
+-- --   erase (SFun s1 s2) = Fun (erase s1) (erase s2)
+-- --   erase SNum = Num
   
   
 
 
-  data _⊢_↝_ :
-    ∀ {Γ Γ'} → Γ ↝ Γ' → Env Γ → Env Γ' → Set where
-    refl : ∀ {Γ} {ρ : Env Γ} → refl ⊢ ρ ↝ ρ
-    extend : ∀ {τ Γ Γ' ρ ρ'} → {Γ↝Γ' : Γ ↝ Γ'} →
-               (v :  ⟦ τ ⟧) → Γ↝Γ' ⊢ ρ ↝ ρ' →
-               extend Γ↝Γ' ⊢ ρ ↝ (just v ∷ ρ')
+-- --   data _⊢_↝_ :
+-- --     ∀ {Γ Γ'} → Γ ↝ Γ' → Env Γ → Env Γ' → Set where
+-- --     refl : ∀ {Γ} {ρ : Env Γ} → refl ⊢ ρ ↝ ρ
+-- --     extend : ∀ {τ Γ Γ' ρ ρ'} → {Γ↝Γ' : Γ ↝ Γ'} →
+-- --                (v :  ⟦ τ ⟧) → Γ↝Γ' ⊢ ρ ↝ ρ' →
+-- --                extend Γ↝Γ' ⊢ ρ ↝ (just v ∷ ρ')
 
-  _⊕ρ_ : ∀ {Γ Γ' Γ''} {Γ↝Γ' : Γ ↝ Γ'} {Γ'↝Γ'' : Γ' ↝ Γ''}
-    {ρ ρ' ρ''} → 
-    Γ↝Γ' ⊢ ρ ↝ ρ' → Γ'↝Γ'' ⊢ ρ' ↝ ρ'' →
-    let Γ↝Γ'' = Γ↝Γ' ⊕ Γ'↝Γ'' in
-    Γ↝Γ'' ⊢ ρ ↝ ρ'' 
-  _⊕ρ_ ρ↝ρ' (refl) = ρ↝ρ'
-  _⊕ρ_ ρ↝ρ' (extend v ρ'↝ρ'') = extend v (ρ↝ρ' ⊕ρ ρ'↝ρ'')
+-- --   _⊕ρ_ : ∀ {Γ Γ' Γ''} {Γ↝Γ' : Γ ↝ Γ'} {Γ'↝Γ'' : Γ' ↝ Γ''}
+-- --     {ρ ρ' ρ''} → 
+-- --     Γ↝Γ' ⊢ ρ ↝ ρ' → Γ'↝Γ'' ⊢ ρ' ↝ ρ'' →
+-- --     let Γ↝Γ'' = Γ↝Γ' ⊕ Γ'↝Γ'' in
+-- --     Γ↝Γ'' ⊢ ρ ↝ ρ'' 
+-- --   _⊕ρ_ ρ↝ρ' (refl) = ρ↝ρ'
+-- --   _⊕ρ_ ρ↝ρ' (extend v ρ'↝ρ'') = extend v (ρ↝ρ' ⊕ρ ρ'↝ρ'')
   
   
 
-  -------------------------------------------------------------------------------- 
-  -- Futile attempt for the logical relation
-  --------------------------------------------------------------------------------
-  -- 
-  -- Equiv-term : forall {s : AType} {G} -> (env : Env G) -> (w : ATInt G s) -> (mv : Maybe ⟦ erase s ⟧) -> Set
-  -- Equiv-term {D x} env w (just v) = (∃₂ (λ v' n -> (ev n env w ≡ just v') × v ≡ v'))
-  -- Equiv-term {SFun s1 s2} {G} env w (just v) = 
-  --   ∀ {Γ' ρ' Γ↝Γ'} → (Γ↝Γ' ⊢ env ↝ ρ') →
-  --      {xₐ : ATInt Γ' s1} → {x : ⟦ (erase s1) ⟧} →
-  --      Equiv-term ρ' xₐ (just x) → Equiv-term ρ' (w Γ↝Γ' xₐ) (v x)
-  -- Equiv-term {SNum} env w (just v) = w ≡ v
-  -- Equiv-term env w nothing = ⊤
+-- --   -------------------------------------------------------------------------------- 
+-- --   -- Futile attempt for the logical relation
+-- --   --------------------------------------------------------------------------------
+-- --   -- 
+-- --   -- Equiv-term : forall {s : AType} {G} -> (env : Env G) -> (w : ATInt G s) -> (mv : Maybe ⟦ erase s ⟧) -> Set
+-- --   -- Equiv-term {D x} env w (just v) = (∃₂ (λ v' n -> (ev n env w ≡ just v') × v ≡ v'))
+-- --   -- Equiv-term {SFun s1 s2} {G} env w (just v) = 
+-- --   --   ∀ {Γ' ρ' Γ↝Γ'} → (Γ↝Γ' ⊢ env ↝ ρ') →
+-- --   --      {xₐ : ATInt Γ' s1} → {x : ⟦ (erase s1) ⟧} →
+-- --   --      Equiv-term ρ' xₐ (just x) → Equiv-term ρ' (w Γ↝Γ' xₐ) (v x)
+-- --   -- Equiv-term {SNum} env w (just v) = w ≡ v
+-- --   -- Equiv-term env w nothing = ⊤
   
 
-  -- Equiv-div : forall {s : AType} {G} (min-steps : ℕ) (env : Env G) (w : ATInt G s) (v : Maybe ⟦ erase s ⟧) -> Set
-  -- Equiv-div {D x} min-steps env w (just v) = ⊤
-  -- Equiv-div {SNum} min-steps env w (just v) = ⊤
-  -- Equiv-div {SFun s1 s2} min-steps env w (just v) = 
-  --   ∀ {Γ' ρ' Γ↝Γ'} → (Γ↝Γ' ⊢ env ↝ ρ') →
-  --      {xₐ : ATInt Γ' s1} → 
-  --      ({x : ⟦ (erase s1) ⟧} → Equiv-term ρ' xₐ (just x) → Equiv-div min-steps ρ' (w Γ↝Γ' xₐ) (v x))
+-- --   -- Equiv-div : forall {s : AType} {G} (min-steps : ℕ) (env : Env G) (w : ATInt G s) (v : Maybe ⟦ erase s ⟧) -> Set
+-- --   -- Equiv-div {D x} min-steps env w (just v) = ⊤
+-- --   -- Equiv-div {SNum} min-steps env w (just v) = ⊤
+-- --   -- Equiv-div {SFun s1 s2} min-steps env w (just v) = 
+-- --   --   ∀ {Γ' ρ' Γ↝Γ'} → (Γ↝Γ' ⊢ env ↝ ρ') →
+-- --   --      {xₐ : ATInt Γ' s1} → 
+-- --   --      ({x : ⟦ (erase s1) ⟧} → Equiv-term ρ' xₐ (just x) → Equiv-div min-steps ρ' (w Γ↝Γ' xₐ) (v x))
 
-  -- Equiv-div {D x} min-steps env w nothing = ∃ (λ n' → min-steps ≤ n' × ev n' env w ≡ nothing)
-  -- Equiv-div {SFun s1 s2} min-steps env w nothing = ⊥
-  -- Equiv-div {SNum} min-steps env w nothing = ⊥
+-- --   -- Equiv-div {D x} min-steps env w nothing = ∃ (λ n' → min-steps ≤ n' × ev n' env w ≡ nothing)
+-- --   -- Equiv-div {SFun s1 s2} min-steps env w nothing = ⊥
+-- --   -- Equiv-div {SNum} min-steps env w nothing = ⊥
 
-  -- data Env-Equiv {Γ' : _} (ρ : Env Γ') :
-  --   ∀ {Δ} → (ρ' : AEnv Γ' Δ) → (ρ'' : Env (map erase Δ))
-  --   → Set where
-  -- -- ...
-  --   [] : Env-Equiv ρ [] []
-  --   cons : ∀ {α Δ} → let τ = erase α
-  --                        Γ = map erase Δ in
-  --           {ρ'' : Env Γ} → {ρ' : AEnv Γ' Δ} → 
-  --           Env-Equiv ρ ρ' ρ'' →
-  --           (va : ATInt Γ' α) → (v : τ) → 
-  --           Equiv ρ va v → 
-  --               Env-Equiv ρ (va ∷ ρ') (v ∷ ρ'')
+-- --   -- data Env-Equiv {Γ' : _} (ρ : Env Γ') :
+-- --   --   ∀ {Δ} → (ρ' : AEnv Γ' Δ) → (ρ'' : Env (map erase Δ))
+-- --   --   → Set where
+-- --   -- -- ...
+-- --   --   [] : Env-Equiv ρ [] []
+-- --   --   cons : ∀ {α Δ} → let τ = erase α
+-- --   --                        Γ = map erase Δ in
+-- --   --           {ρ'' : Env Γ} → {ρ' : AEnv Γ' Δ} → 
+-- --   --           Env-Equiv ρ ρ' ρ'' →
+-- --   --           (va : ATInt Γ' α) → (v : τ) → 
+-- --   --           Equiv ρ va v → 
+-- --   --               Env-Equiv ρ (va ∷ ρ') (v ∷ ρ'')
 
