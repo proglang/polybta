@@ -11,7 +11,7 @@ open import Data.Unit
 data Type : Set where
   NAT : Type
   FUN : Type → Type → Type
-  STREAM : Type
+  STREAM : Type → Type
 
 Cx : Set
 Cx = List Type
@@ -29,14 +29,14 @@ data Exp (Γ : Cx) : Type -> Set where
   Cst : ℕ → Exp Γ NAT
   Op2 : (ℕ → ℕ → ℕ) → Exp Γ NAT → Exp Γ NAT → Exp Γ NAT
 
-  Str : ∀ {t} → Exp Γ t → Exp (t ∷ Γ) NAT → Exp (t ∷ Γ) t → Exp Γ STREAM
-  Hd  : Exp Γ STREAM → Exp Γ NAT
-  Tl  : Exp Γ STREAM → Exp Γ STREAM
+  Str : ∀ {t ts} → Exp Γ t → Exp (t ∷ Γ) ts → Exp (t ∷ Γ) t → Exp Γ (STREAM ts)
+  Hd  : ∀ {ts} → Exp Γ (STREAM ts) → Exp Γ ts
+  Tl  : ∀ {ts} → Exp Γ (STREAM ts) → Exp Γ (STREAM ts)
 
 T⟪_⟫ : Type → Set
 T⟪ NAT ⟫ = ℕ
 T⟪ FUN t t₁ ⟫ = T⟪ t ⟫ → T⟪ t₁ ⟫
-T⟪ STREAM ⟫ = Stream ℕ
+T⟪ STREAM ts ⟫ = Stream (T⟪ ts ⟫)
 
 C⟪_⟫ : Cx → Set
 C⟪ [] ⟫ = ⊤
@@ -46,7 +46,7 @@ evVar : ∀ {Γ t} → In t Γ → C⟪ Γ ⟫ → T⟪ t ⟫
 evVar hd (proj₁ , proj₂) = proj₁
 evVar (tl p) (proj₁ , proj₂) = evVar p proj₂
 
-evStr : ∀ {S : Set} → S → (S → ℕ) → (S → S) → Stream ℕ
+evStr : ∀ {S T : Set} → S → (S → T) → (S → S) → Stream T
 evStr seed head tail = head seed ∷ ♯ evStr (tail seed) head tail
 
 ev : ∀ {Γ t} → Exp Γ t → C⟪ Γ ⟫ → T⟪ t ⟫
@@ -59,13 +59,13 @@ ev (Str e e₁ e₂) ρ = evStr (ev e ρ) (λ y → ev e₁ (y , ρ)) (λ y → 
 ev (Hd e) ρ = head (ev e ρ)
 ev (Tl e) ρ = tail (ev e ρ)
 
-e_ones : Exp [] STREAM
+e_ones : Exp [] (STREAM NAT)
 e_ones = Str (Cst 1) (Var hd) (Var hd)
 
 ones : Stream ℕ
 ones = ev e_ones tt
 
-e_nats_from : Exp [] (FUN NAT STREAM)
+e_nats_from : Exp [] (FUN NAT (STREAM NAT))
 e_nats_from = Lam NAT (Str (Var hd) (Var hd) (Op2 _+_ (Cst 1) (Var hd)))
 
 nats : Stream ℕ
