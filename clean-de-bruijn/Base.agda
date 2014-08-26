@@ -13,7 +13,9 @@ data Exp (Γ : Ctx) : Type → Set where
   EVar : ∀ {τ} → τ ∈ Γ → Exp Γ τ
   ECst : ℕ → Exp Γ Num
   ESuc : Exp Γ Num → Exp Γ Num
-  ERec : ∀ {τ} → Exp Γ Num → Exp Γ τ → Exp Γ (Fun τ τ) → Exp Γ τ
+  EIt : ∀ {τ} → Exp Γ Num → Exp Γ τ → Exp Γ (Fun τ τ) → Exp Γ τ
+  ERec  : ∀ {τ} → Exp Γ τ → Exp Γ (Fun Num (Fun τ τ)) → Exp Γ Num
+                → Exp Γ τ
   EAdd : Exp Γ Num → Exp Γ Num → Exp Γ Num
   ELam : ∀ {τ τ'} → Exp (τ ∷ Γ) τ' → Exp Γ (Fun τ τ')
   EApp : ∀ {τ τ'} → Exp Γ (Fun τ τ') → Exp Γ τ → Exp Γ τ'
@@ -24,6 +26,9 @@ data Exp (Γ : Ctx) : Type → Set where
   EInr :  ∀ {τ τ'} → Exp Γ τ' → Exp Γ (Sum τ τ')
   ECase : ∀ {τ τ' τ''} → Exp Γ (Sum τ τ') →
           Exp (τ ∷ Γ) τ'' → Exp (τ' ∷ Γ) τ'' → Exp Γ τ''
+ 
+
+
 TInt : Type → Set
 TInt Num = ℕ
 TInt (Fun τ₁ τ₂) = TInt τ₁ → TInt τ₂
@@ -37,15 +42,23 @@ lookupE : ∀ { τ Γ } → τ ∈ Γ → Env Γ → TInt τ
 lookupE hd (x ∷ ρ) = x
 lookupE (tl v) (_ ∷ ρ) = lookupE v ρ
 
-natrec : ∀ { t : Set } → ℕ → t → (t → t) → t
+natrec : ∀ {t : Set} → ℕ → t → (ℕ → (t → t)) → t
 natrec zero v0 vs = v0
-natrec (suc n) v0 vs = vs (natrec n v0 vs)
+natrec (suc n) v0 vs = vs n (natrec n v0 vs)
+
+natit : ∀ { t : Set } → ℕ → t → (t → t) → t
+natit zero v0 vs = v0
+natit (suc n) v0 vs = vs (natit n v0 vs)
+
+
+
 
 ev : ∀ {τ Γ} → Exp Γ τ → Env Γ → TInt τ
 ev (EVar v) ρ = lookupE v ρ
 ev (ECst x) ρ = x
 ev (ESuc e) ρ = suc (ev e ρ)
-ev (ERec e e0 es) ρ = natrec (ev e ρ) (ev e0 ρ) (ev es ρ)
+ev (EIt e e0 es) ρ = natit (ev e ρ) (ev e0 ρ) (ev es ρ)
+ev (ERec v u n) ρ = natrec (ev n ρ) (ev v ρ) (ev u ρ)
 ev (EAdd e f) ρ = ev e ρ + ev f ρ
 ev (ELam e) ρ = λ x → ev e (x ∷ ρ)
 ev (EApp e f) ρ = ev e ρ (ev f ρ)

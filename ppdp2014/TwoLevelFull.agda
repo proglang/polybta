@@ -1,5 +1,3 @@
-\agdaIgnore{
-\begin{code}
 module TwoLevelFull where
 open import Lib
 open import BaseFull
@@ -8,14 +6,12 @@ open import CtxExtension
 data AType : Set where
   SNum  : AType
   SFun  : AType → AType → AType
-\end{code}}
-\agdaSnippet\btaATypeSumProd{
-\begin{code}
+
+
   SPrd  : AType → AType → AType
   SSum  : AType → AType → AType
-\end{code}}
-\agdaIgnore{
-\begin{code}
+
+
   D     : Type → AType
 
 ACtx = List AType
@@ -30,9 +26,8 @@ erase (SPrd α₁ α₂) = Prd (erase α₁) (erase α₂)
 erase (SSum α₁ α₂) = Sum (erase α₁) (erase α₂)
 erase (D x) = x
 
-\end{code}}
-\agdaSnippet\btaLiftable{
-\begin{code}
+
+
 mutual 
   data Liftable : AType → Set where
     D : ∀ τ → Liftable (D τ)
@@ -50,28 +45,27 @@ mutual
       Liftable⁻ α₁ → Liftable⁻ α₂ → Liftable⁻ (SPrd α₁ α₂)
     SFun : ∀ {α₁ α₂} →
       Liftable α₁ → Liftable⁻ α₂ → Liftable⁻ (SFun α₁ α₂)
-\end{code}}
-\agdaIgnore{
-\begin{code}
+
+
 
 data AExp (Δ : ACtx) : AType → Set where
   Var : ∀ {α} → α ∈ Δ → AExp Δ α
   SCst : ℕ → AExp Δ SNum
   SSuc : AExp Δ SNum → AExp Δ SNum
-  SRec : ∀ {α} → AExp Δ SNum → AExp Δ α → AExp Δ (SFun α α) → AExp Δ α
+  SRec  : ∀ {α} → AExp Δ SNum → AExp Δ α → AExp Δ (SFun SNum (SFun α α)) → AExp Δ α
   SAdd : AExp Δ SNum → AExp Δ SNum → AExp Δ SNum
   SLam : ∀ {α₁ α₂} → AExp (α₁ ∷ Δ) α₂ → AExp Δ (SFun α₁ α₂)
   SApp : ∀ {α₁ α₂} → AExp Δ (SFun α₁ α₂) → AExp Δ α₁ → AExp Δ α₂
   DCst : ℕ → AExp Δ (D Num)
   DSuc : AExp Δ (D Num) → AExp Δ (D Num)
-  DRec : ∀ {σ} → AExp Δ (D Num) → AExp Δ (D σ) → AExp Δ (D (Fun σ σ)) → AExp Δ (D σ)
+  DRec  : ∀ {σ} → AExp Δ (D Num) → AExp Δ (D σ) → AExp Δ (D (Fun Num (Fun σ σ)))  
+               → AExp Δ (D σ)
   DAdd : AExp Δ (D Num) → AExp Δ (D Num) → AExp Δ (D Num)
   DLam : ∀ {σ₁ σ₂} → AExp ((D σ₁) ∷ Δ) (D σ₂) → AExp Δ (D (Fun σ₁ σ₂))
   DApp : ∀ {σ₁ σ₂} → AExp Δ (D (Fun σ₂ σ₁)) → AExp Δ (D σ₂) → AExp Δ (D σ₁)
   -- Dynamic pairs and sums
-\end{code}}
-\agdaSnippet\btaAExpSumProd{
-\begin{code}
+
+
   SPair : ∀ {α₁ α₂} → AExp Δ α₁ → AExp Δ α₂ → AExp Δ (SPrd α₁ α₂)
   SInl   : ∀ {α₁ α₂} → AExp Δ α₁ → AExp Δ (SSum α₁ α₂)
   SInr   : ∀ {α₁ α₂} → AExp Δ α₂ → AExp Δ (SSum α₁ α₂)
@@ -84,14 +78,12 @@ data AExp (Δ : ACtx) : AType → Set where
   DFst  : ∀ {σ₁ σ₂} → AExp Δ (D (Prd σ₁ σ₂)) → AExp Δ (D σ₁)
   DSnd  : ∀ {σ₁ σ₂} → AExp Δ (D (Prd σ₁ σ₂)) → AExp Δ (D σ₂)
   DCase : ∀ {σ₁ σ₂ σ₃} → AExp Δ (D (Sum σ₁ σ₂)) → AExp ((D σ₁) ∷ Δ) (D σ₃) → AExp ((D σ₂) ∷ Δ) (D σ₃) → AExp Δ (D σ₃) 
-\end{code}}
-\agdaSnippet\btaAExpLift{
-\begin{code}
+
+
   Lift : {α : AType} →
     Liftable α → AExp Δ α  → AExp Δ (D (erase α))
-\end{code}}
-\agdaIgnore{
-\begin{code}
+
+
 
 -- type interpretation
 ATInt : Ctx → AType → Set
@@ -153,9 +145,8 @@ lookup : ∀ {Γ Δ α} → α ∈ Δ → AEnv Γ Δ → ATInt Γ α
 lookup hd (v ∷ _) = v 
 lookup (tl x) (_ ∷ ρ) = lookup x ρ
 
-\end{code}}
-\agdaSnippet\btaLiftImpl{
-\begin{code}
+
+
 lift : ∀ {Γ α} → Liftable α → ATInt Γ α → (Exp Γ (erase α))
 embed : ∀ {Γ α} →
   Liftable⁻ α → Exp Γ (erase α) → (ATInt Γ α)
@@ -173,9 +164,8 @@ embed (D τ) e = e
 embed (SPrd ty ty₁) e = embed ty (EFst e) , embed ty₁ (ESnd e)
 embed {Γ} (SFun {α} ty₁ ty₂) e = 
   λ Γ↝Γ' v₁ → embed ty₂ (EApp (int↑ Γ↝Γ' e) (lift ty₁ v₁))
-\end{code}}
-\agdaIgnore{
-\begin{code}
+
+
 
 pe : ∀ { Γ Δ α } → 
          AExp Δ α → AEnv Γ Δ → ATInt Γ α
@@ -188,14 +178,13 @@ pe (SCst x) _      = x
 pe (DCst x) _      = ECst x
 pe (SSuc e) ρ      = suc (pe e ρ)
 pe (DSuc e) ρ      = ESuc (pe e ρ)
-\end{code}}
-\agdaSnippet\btaPeRec{
-\begin{code}
-pe (SRec eₙ e₀ eₛ) ρ = natrec (pe eₙ ρ) (pe e₀ ρ) (pe eₛ ρ refl)
+
+
 pe (DRec eₙ e₀ eₛ) ρ = ERec (pe eₙ ρ) (pe e₀ ρ) (pe eₛ ρ)
-\end{code}}
-\agdaIgnore{
-\begin{code}
+pe (SRec eₙ e₀ eₛ) ρ =
+  natrec (pe eₙ ρ) (pe e₀ ρ) (λ n → (pe eₛ ρ refl) n refl)
+
+
 pe (SAdd e f) ρ    = (pe e ρ) + (pe f ρ) 
 pe (DAdd e f) ρ    = EAdd (pe e ρ) (pe f ρ) 
 pe (SPair e e₁) ρ = pe e ρ , pe e₁ ρ
@@ -212,8 +201,9 @@ pe (DInr e) ρ = EInr (pe e ρ)
 pe (DFst e) ρ = EFst (pe e ρ)
 pe (DSnd e) ρ = ESnd (pe e ρ)
 pe (DCase e e₁ e₂) ρ = ECase (pe e ρ) (pe e₁ (addFresh ρ)) (pe e₂ (addFresh ρ))
-\end{code}}
-\agdaSnippet\btaPeLift{
-\begin{code}
+
+
 pe (Lift lftbl e) ρ = lift lftbl (pe e ρ)
-\end{code}}
+
+
+

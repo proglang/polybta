@@ -12,13 +12,17 @@ residualize : ∀ {α Δ} → AExp Δ α → Exp (map erase Δ) (erase α)
 residualize (Var x) = EVar (mapIdx erase  x)
 residualize (SCst x) = ECst x
 residualize (SSuc e) = ESuc (residualize e)
-residualize (SRec e e₀ e₁) = ERec (residualize e) (residualize e₀) (residualize e₁)
+residualize (SIt e e₀ e₁) = EIt (residualize e) (residualize e₀) (residualize e₁)
+--static recursor
+residualize (SRec v u n) = ERec (residualize v) (residualize u) (residualize n)
 residualize (SAdd e e₁) = EAdd (residualize e) (residualize e₁)
 residualize (SLam e) = ELam (residualize e)
 residualize (SApp e e₁)  = EApp (residualize e) (residualize e₁)
 residualize (DCst x)  = ECst x
 residualize (DSuc e) = ESuc (residualize e)
-residualize (DRec e e₀ e₁) = ERec (residualize e) (residualize e₀) (residualize e₁)
+residualize (DIt e e₀ e₁) = EIt (residualize e) (residualize e₀) (residualize e₁)
+--dynamic recursor
+residualize (DRec v u n) = ERec (residualize v) (residualize u) (residualize n)
 residualize (DAdd e e₁) = EAdd (residualize e) (residualize e₁)
 residualize (DLam e)  = ELam (residualize e)
 residualize (DApp e e₁)  = EApp (residualize e) (residualize e₁)
@@ -38,6 +42,7 @@ residualize (Lift lftbl e) = residualize e
 
 -- Extending a value environment according to an extension of a
 -- type environment
+
 data _⊢_↝_ :
   ∀ {Γ Γ'} → Γ ↝ Γ' → Env Γ → Env Γ' → Set where
   refl : ∀ {Γ} {ρ : Env Γ} → refl ⊢ ρ ↝ ρ
@@ -128,8 +133,10 @@ elevate-≡ ρ↝ρ' (EVar x) = lookup-elevate2-≡ ρ↝ρ' x
 elevate-≡ ρ↝ρ' (ECst x) = refl
 elevate-≡ ρ↝ρ' (ESuc e) with elevate-≡ ρ↝ρ' e
 ... | IA = cong suc IA
-elevate-≡ ρ↝ρ' (ERec e e₀ e₁) with elevate-≡ ρ↝ρ' e | elevate-≡ ρ↝ρ' e₀ | elevate-≡ ρ↝ρ' e₁
-... | IA | IA₀ | IA₁ = cong₃ natrec IA IA₀ IA₁
+elevate-≡ ρ↝ρ' (EIt e e₀ e₁) with elevate-≡ ρ↝ρ' e | elevate-≡ ρ↝ρ' e₀ | elevate-≡ ρ↝ρ' e₁
+... | IA | IA₀ | IA₁ = cong₃ natit IA IA₀ IA₁
+elevate-≡ ρ↝ρ' (ERec v u n) with elevate-≡ ρ↝ρ' v | elevate-≡ ρ↝ρ' u | elevate-≡ ρ↝ρ' n 
+... | IV | IU | IN = cong₃ natrec IN IV IU
 elevate-≡ ρ↝ρ' (EAdd e e₁) with elevate-≡ ρ↝ρ' e | elevate-≡ ρ↝ρ' e₁
 ... | IA1 | IA2 = cong₂ _+_ IA1 IA2
 elevate-≡ {Γ↝Γ'↝Γ'' = Γ↝Γ'↝Γ''}
@@ -155,6 +162,8 @@ elevate-≡ {ρ = ρ}
                                        with ev e ρ
 ... | inj₁ x = elevate-≡ (extend ρ↝ρ' x) e₁
 ... | inj₂ y = elevate-≡ (extend ρ↝ρ' y) e₂ 
+
+
 
 
 int↑-equiv : ∀ {α Γ Γ'} → 
@@ -210,6 +219,7 @@ env↑-equiv {Γ↝Γ' = Γ↝Γ'} ρ'↝ρ'' (cons eqρ va v x)
   with env↑-equiv ρ'↝ρ'' eqρ
 ... | IA = cons IA (int↑ Γ↝Γ' va) v (int↑-equiv va v ρ'↝ρ'' x)
 
+
 mutual 
   lift-correct : ∀ {Γ α} (lft : Liftable α) (env : Env Γ) (av : ATInt Γ α) (v : TInt (erase α)) →  
                  Equiv env av v → (Equiv env (lift lft av) v)
@@ -247,7 +257,7 @@ mutual
                           | sym (cong (λ f → f v') (int↑-equiv e v (envext) eq))
                           |  (cong (λ f → f v') eq) = refl 
 
-natrec-correct :
+natit-correct :
           ∀ {Δ} → 
           (n : _) →
           (Γ' : List Type)
@@ -263,12 +273,40 @@ natrec-correct :
                  Equiv ρ₁' xₐ x →
                  Equiv ρ₁' (pe e₁ ρ' Γ↝Γ' xₐ) (ev (residualize e₁) ρ'' x)) →
           Equiv env'
-          (natrec n (pe e₀ ρ') (pe e₁ ρ' refl))
+          (natit n (pe e₀ ρ') (pe e₁ ρ' refl))
+          (natit n (ev (residualize e₀) ρ'') (ev (residualize e₁) ρ''))
+natit-correct zero Γ' ρ' ρ'' α e₀ e₁ env' IA₀ IA₁ = IA₀
+natit-correct (suc n) Γ' ρ' ρ'' α e₀ e₁ env' IA₀ IA₁ 
+  with natit-correct n Γ' ρ' ρ'' α e₀ e₁ env' IA₀ IA₁ 
+... | IA = IA₁ refl IA
+
+
+
+natrec-correct :
+          ∀ {Δ} → 
+          (n : _) →
+          (Γ' : List Type)
+          (ρ' : AEnv Γ' Δ) (ρ'' : Env (map erase Δ))
+          (α : _)
+          (e₀ : AExp Δ α) (e₁ : AExp Δ (SFun SNum (SFun α α)))
+          (env'  : Env Γ')
+          (IA₀ : Equiv env' (pe e₀ ρ') (ev (residualize e₀) ρ'')) →
+          (IA₁ : {m₁ : _} → {m₂ : _} → m₁ ≡ m₂ → 
+                 {Γ₁' : List Type} {ρ₁' : Env Γ₁'} {Γ↝Γ' : Γ' ↝ Γ₁'} →
+                 Γ↝Γ' ⊢ env' ↝ ρ₁' →
+                 {xₐ : ATInt Γ₁' α}
+                 {x : TInt (erase α)} →
+                 Equiv ρ₁' xₐ x →
+                 Equiv ρ₁' (pe e₁ ρ' Γ↝Γ' m₁ refl xₐ) (ev (residualize e₁) ρ'' m₂  x)) →
+          Equiv env'
+          (natrec n (pe e₀ ρ') (λ n₁ → pe {Γ'} e₁ ρ' {Γ'} refl n₁ {Γ'} refl))
           (natrec n (ev (residualize e₀) ρ'') (ev (residualize e₁) ρ''))
-natrec-correct zero Γ' ρ' ρ'' α e₀ e₁ env' IA₀ IA₁ = IA₀
+natrec-correct zero Γ' ρ' ρ'' α e₀ e₁ env' IA₀ IA₁ =  IA₀
 natrec-correct (suc n) Γ' ρ' ρ'' α e₀ e₁ env' IA₀ IA₁ 
   with natrec-correct n Γ' ρ' ρ'' α e₀ e₁ env' IA₀ IA₁ 
-... | IA = IA₁ refl IA
+... | IA = IA₁ refl refl IA
+
+
 
 pe-correct : ∀ { α Δ Γ' } →
   (e : AExp Δ α) →
@@ -279,9 +317,19 @@ pe-correct : ∀ { α Δ Γ' } →
 pe-correct (Var x) env' eqenv = lookup-equiv env' eqenv x
 pe-correct (SCst x) env' eqenv = refl
 pe-correct (SSuc e) env' eqenv rewrite pe-correct e env' eqenv = refl
-pe-correct {Δ = Δ} {Γ' = Γ'} (SRec {α} e e₀ e₁) env' {ρ'} {ρ''} eqenv
+pe-correct {Δ = Δ} {Γ' = Γ'} (SIt {α} e e₀ e₁) env' {ρ'} {ρ''} eqenv
   with pe-correct e env' eqenv | pe-correct e₀ env' eqenv | pe-correct e₁ env' eqenv
-... | IA | IA₀ | IA₁ rewrite IA = natrec-correct (ev (residualize e) ρ'') Γ' ρ' ρ'' α e₀ e₁ env' IA₀ IA₁
+... | IA | IA₀ | IA₁ rewrite IA = natit-correct (ev (residualize e) ρ'') Γ' ρ' ρ'' α e₀ e₁ env' IA₀
+                                    IA₁
+pe-correct {Δ = Δ} {Γ' = Γ'} (SRec {α} v u n) env' {ρ'} {ρ''} eqenv 
+  with pe-correct n env' eqenv | pe-correct v env' eqenv | pe-correct u env' eqenv 
+... | IN | IV | IU rewrite IN = natrec-correct (ev (residualize n) ρ'') Γ' ρ' ρ'' α v u env' IV 
+    (λ {m₁} {m₂} m₁≡m₂ {Γ₁'} {ρ₁'} {Γ↝Γ'} Γ↝Γ'⊢env'↝ρ₁' → 
+     IU {Γ₁'} {ρ₁'} {Γ↝Γ'} Γ↝Γ'⊢env'↝ρ₁' {m₁} {m₂} m₁≡m₂ {Γ₁'} {ρ₁'}
+       {refl} refl)
+     
+
+
 pe-correct (SAdd e e₁) env' eqenv 
   rewrite pe-correct e env' eqenv | pe-correct e₁ env' eqenv = refl
 pe-correct (SLam e) env' eqenv = 
@@ -296,7 +344,8 @@ pe-correct (SApp e e₁) env' eqenv
 ... | IAe | IAf = IAe (refl) IAf
 pe-correct (DCst x) env' eqenv = refl
 pe-correct (DSuc e) env' eqenv rewrite pe-correct e env' eqenv = refl
-pe-correct (DRec e e₀ e₁) env' eqenv rewrite pe-correct e env' eqenv | pe-correct e₀ env' eqenv | pe-correct e₁ env' eqenv = refl
+pe-correct (DIt e e₀ e₁) env' eqenv rewrite pe-correct e env' eqenv | pe-correct e₀ env' eqenv | pe-correct e₁ env' eqenv = refl
+pe-correct (DRec v u n) env' eqenv rewrite pe-correct n env' eqenv | pe-correct v env' eqenv | pe-correct u env' eqenv = refl
 pe-correct (DAdd e e₁) env' eqenv
   rewrite pe-correct e env' eqenv | pe-correct e₁ env' eqenv = refl
 pe-correct (DLam e) env' eqenv = 

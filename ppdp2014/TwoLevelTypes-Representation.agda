@@ -1,30 +1,18 @@
-\agdaIgnore{
-\begin{code}
-module TwoLevelAnnotations where
+{- Gives the isomorphism between our two-level types and the traditional representation with annotations -}
+module TwoLevelTypes-Representation where
 open import Lib
 open import BaseFull
 open import TwoLevelFull
 
-\end{code}}
-\agdaSnippet\btaDefinition{
-\begin{code}
 data BT : Set where
   S : BT
   D : BT
-\end{code}}
-\agdaIgnore{
 -- Ordering on binding times: dynamic binding time subsumes static
 -- binding time.
-}
-\agdaSnippet\btaOrdering{
-\begin{code}
 data _⊑_ : BT → BT → Set where
   S⊑S : S ⊑ S
   S⊑D : S ⊑ D
   D⊑D : D ⊑ D
-\end{code}}
-\agdaSnippet\btaATypeBType{
-\begin{code}
 mutual
   data AType' : Set where
     an  : BT → BType → AType'
@@ -32,15 +20,8 @@ mutual
   data BType : Set where
     BNum : BType
     BFun : AType' → AType' → BType
-\end{code}}
-\agdaIgnore{
-\begin{code}
     BPrd : AType' → AType' → BType 
     BSum : AType' → AType' → BType 
-\end{code}
-\end{agdaIgnore}}
-\agdaSnippet\btaATypeWft{
-\begin{code}
 _≼_ : BT → AType' → Set
 β ≼ an β₁ _ = β ⊑ β₁
 
@@ -48,16 +29,10 @@ data wft : AType' → Set where
   wf-num : ∀ {β} → wft (an β BNum)
   wf-fun : ∀ {β} {α₁ α₂} → wft α₁ → wft α₂ 
            → β ≼ α₁ → β ≼ α₂ → wft (an β (BFun α₁ α₂))
-\end{code}}
-\agdaIgnore{
-\begin{code}
   wf-prd : ∀ {β} {α₁ α₂} → wft α₁ → wft α₂ 
            → β ≼ α₁ → β ≼ α₂ → wft (an β (BPrd α₁ α₂))  
   wf-sum : ∀ {β} {α₁ α₂} → wft α₁ → wft α₂ 
            → β ≼ α₁ → β ≼ α₂ → wft (an β (BSum α₁ α₂))
-\end{code}}
-\agdaIgnore{
-\begin{code}
 lem-S-≼ : ∀ α' → S ≼ α'
 lem-S-≼ (an S x₁) = S⊑S
 lem-S-≼ (an D x₁) = S⊑D
@@ -108,18 +83,12 @@ lem-iso-right-dyn (an D (BPrd x x₁)) (wf-prd w w₁ p p₁) D⊑D
   rewrite lem-iso-right-dyn x w p | lem-iso-right-dyn x₁ w₁ p₁ = refl
 lem-iso-right-dyn (an D (BSum x x₁)) (wf-sum w w₁ p p₁) D⊑D
   rewrite lem-iso-right-dyn x w p | lem-iso-right-dyn x₁ w₁ p₁ = refl
-\end{code}}
-\agdaSnippet\btaATypeIso{
-\begin{code}
 atToWft : AType → Σ AType' wft
 wftToAt : Σ AType' wft → AType
 
 lem-iso-left : ∀ α → wftToAt (atToWft α) ≡ α
 lem-iso-right : ∀ α' → (w : wft α') →
         proj₁ (atToWft (wftToAt (α' , w))) ≡ α'
-\end{code}}
-\agdaIgnore{
-\begin{code}
 --
 atToWft SNum = an S BNum , wf-num
 atToWft (SFun at at₁) with atToWft at | atToWft at₁
@@ -141,15 +110,12 @@ wftToAt (an S (BSum x x₁) , wf-sum w w₁ x₂ x₃) with wftToAt (x , w) | wf
 ... | α | α₁ = SSum α α₁
 wftToAt (an D at' , w) = D (wftTot' (an D at' , w , D⊑D))
 
--- TODO: ../BTA10.lagda contains a complete proof for the type
--- isomorpisms. It needs to be refactored to fit the definitions/names
--- used in the paper.
 lem-iso-left SNum = refl
 lem-iso-left (SFun α α₁) rewrite lem-iso-left α | lem-iso-left α₁ = refl
-lem-iso-left (SPrd α α₁) rewrite lem-iso-left α | lem-iso-left α₁ = refl -- refl
+lem-iso-left (SPrd α α₁) rewrite lem-iso-left α | lem-iso-left α₁ = refl
 lem-iso-left (SSum α α₁) rewrite lem-iso-left α | lem-iso-left α₁ = refl
 lem-iso-left (D τ) with lem-tToWft-dyn τ 
-lem-iso-left (D τ) | bt , w , p rewrite lem-iso-left-dyn τ | p = {! !}
+lem-iso-left (D τ) | bt , w , p rewrite sym (cong {A = Type} {B = AType} D (lem-iso-left-dyn τ))  | p = refl
 
 lem-iso-right (an S BNum) wf-num = refl
 lem-iso-right (an S (BFun x x₁)) (wf-fun w w₁ x₂ x₃)
@@ -159,5 +125,4 @@ lem-iso-right (an S (BPrd x x₁)) (wf-prd w w₁ x₂ x₃)
 lem-iso-right (an S (BSum x x₁)) (wf-sum w w₁ x₂ x₃)
   rewrite lem-iso-right x w | lem-iso-right x₁ w₁ = refl
 lem-iso-right (an D x₁) w with lem-tToWft-dyn (wftTot (an D x₁) w D⊑D) 
-lem-iso-right (an D x₁) w | proj₁ , proj₂ , proj₃ rewrite proj₃ = {!!}
-\end{code}}
+lem-iso-right (an D x₁) w | proj₁ , proj₂ , proj₃ rewrite lem-iso-right-dyn (an D x₁) w (D⊑D) = refl
