@@ -1,3 +1,5 @@
+--a)translating "De Bruijn" terms to "PHOAS" terms by [proj]
+--b)proof of the correctness of the translation
 module DB2PHOAS where
 open import Data.Nat hiding  (_<_;_⊔_;_*_;equal)
 open import Data.Bool hiding (_∨_) 
@@ -8,7 +10,7 @@ open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality 
 open import Data.Empty
 open import Data.Product
-open import Lib hiding (_∧_)
+open import BTA-Lib hiding (_∧_)
 open import Data.Sum
 
 ----------------------
