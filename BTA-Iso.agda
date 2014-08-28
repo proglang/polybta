@@ -1,4 +1,6 @@
-module BTA12 where
+--Isomorphism between two-level types and its simpler alternative
+--which incorporates well-formedness restrictions on types 
+module BTA-Iso where
 open import Data.Bool
 open import Data.List
 open import Data.Nat
