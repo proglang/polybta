@@ -1,4 +1,9 @@
-module BTA6 where
+--partial evaluation of a two-level typed lambda calculus
+--extended with: 
+--a)lifting constructor [Lift] of terms of static integer types
+--b)correctness proof of the partial evaluation
+                
+module BTA4 where
 
 ----------------------------------------------
 -- Preliminaries: Imports and List-utilities
@@ -12,10 +17,7 @@ open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality
 open import Category.Functor
 
--- Pointer into a list. It is similar to list membership as defined in
--- Data.List.AnyMembership, rather than going through propositional
--- equality, it asserts the existence of the referenced element
--- directly.
+
 module ListReference where 
   infix 4 _∈_
   data _∈_ {A : Set} : A → List A → Set where
@@ -50,8 +52,7 @@ module ListExtension where
   lem-↝-refl-id ↝-refl = refl
   lem-↝-refl-id (↝-extend Γ↝Γ') =
     cong ↝-extend (lem-↝-refl-id Γ↝Γ')
-  -- TODO: why does this work?
-  -- lem-↝-refl-id (↝-extend Γ↝Γ') = lem-↝-refl-id (↝-extend Γ↝Γ')
+ 
 
   -- Extending a list in the middle: 
   data _↝_↝_ {A : Set} : List A → List A → List A → Set where
@@ -62,32 +63,15 @@ module ListExtension where
                  Γ ↝ Γ' ↝ Γ'' → (τ ∷ Γ) ↝ (τ ∷ Γ') ↝ (τ ∷ Γ'') 
 open ListExtension
 
----------------------------------------
--- Start of the development:
----------------------------------------
 
--- Intro/Objective:
--------------------
--- The following development defines a (verified) specializer/partial
--- evaluator for a simply typed lambda calculus embedded in Agda using
--- deBruijn indices.
 
--- The residual language.
--------------------------
 
--- The residual language is a standard simply typed λ-calculus.  The
--- types are integers and functions.
 data Type : Set where
   Int : Type
   Fun : Type → Type → Type
 Ctx = List Type
 
--- The type Exp describes the typed residual expressions. Variables
--- are represented by deBruijn indices that form references into the
--- typing context. The constructors and typing constraints are
--- standard.
 
--- TODO: citations for ``as usual'' and ``standard''
 data Exp (Γ : Ctx) : Type → Set where
   EVar : ∀ {τ} → τ ∈ Γ → Exp Γ τ
   EInt : ℕ → Exp Γ Int
@@ -95,23 +79,19 @@ data Exp (Γ : Ctx) : Type → Set where
   ELam : ∀ {τ τ'} → Exp (τ ∷ Γ) τ' → Exp Γ (Fun τ τ')
   EApp : ∀ {τ τ'} → Exp Γ (Fun τ τ')  → Exp Γ τ → Exp Γ τ'
 
--- The standard functional semantics of the residual expressions. 
--- TODO: citations for ``as usual'' and ``standard''
+
 module Exp-Eval where
   -- interpretation of Exp types
   EImp : Type → Set
   EImp Int = ℕ
   EImp (Fun τ₁ τ₂) = EImp τ₁ → EImp τ₂
 
-  -- Environments containing values for free variables. An environment
-  -- is indexed by a typing context that provides the types for the
-  -- contained values.
+
   data Env : Ctx → Set where 
     [] : Env []
     _∷_ : ∀ {τ Γ} → EImp τ → Env Γ → Env (τ ∷ Γ)
   
-  -- Lookup a value in the environment, given a reference into the
-  -- associated typing context.
+
   lookupE : ∀ { τ Γ } → τ ∈ Γ → Env Γ → EImp τ
   lookupE hd (x ∷ env) = x
   lookupE (tl v) (x ∷ env) = lookupE v env
@@ -126,12 +106,6 @@ module Exp-Eval where
 
 
 -- The binding-time-annotated language. 
----------------------------------------
-
--- The type of a term determines the term's binding time. The type
--- constructors with an A-prefix denote statically bound integers and
--- functions. Terms with dynamic binding time have a `D' type. The `D'
--- type constructor simply wraps up a residual type.
 data AType : Set where
     AInt  : AType
     AFun  : AType → AType → AType
@@ -147,7 +121,6 @@ typeof (D x) = x
 -- ATypes are stratified such that that dynamically bound
 -- functions can only have dynamically bound parameters.
 
--- TODO: why exactly is that necessary?
 
 -- The following well-formedness relation as an alternative representation
 -- for this constraint:
@@ -316,7 +289,7 @@ module AExp-Examples where
 
   -- The implementation type now also has to hold open residual terms,
   -- which arise as the result of partially evaluating an open term
-  -- with with dynamic binding time. The calculation of the
+  -- with dynamic binding time. The calculation of the
   -- implementation type thus requires a typing context as a
   -- parameter.
   Imp1 : Ctx → AType → Set
@@ -348,8 +321,8 @@ module AExp-Examples where
     SInt : Static AInt
     SFun : ∀ { α₁ α₂ } → Static α₂ → Static (AFun α₁ α₂)
 
-  is-static : (α : AType) → Dec (Static α)
-  is-static α = {!!}
+  -- is-static : (α : AType) → Dec (Static α)
+  -- is-static α = {!!}
 
   Imp2 : Ctx → AType → Set
   Imp2 _ AInt = ℕ
@@ -437,19 +410,16 @@ module Examples where
   z : ∀ {α₁ α₂ α Δ} → AExp (α₁ ∷ α₂ ∷ α ∷ Δ) α
   z = Var (tl (tl hd))
 
--- Dλ y → let f = λ x → x D+ y in Dλ z → f z
+
   term1 : AExp [] (D (Fun Int (Fun Int Int)))
   term1 = DLam (AApp (ALam (DLam (AApp (ALam y) x)))
                      ((ALam (DAdd x y))))
 
--- Dλ y → let f = λ x → (Dλ w → x D+ y) in Dλ z → f z
--- Dλ y → (λ f → Dλ z → f z) (λ x → (Dλ w → x D+ y))
   term2 : AExp [] (D (Fun Int (Fun Int Int)))
   term2 = DLam (AApp (ALam (DLam (AApp (ALam y) x)))
                      ((ALam (DLam {σ₁ = Int} (DAdd y z)))))
 
-  -- closed pe. In contrast to BTA5, it is now not clear what Γ is
-  -- given an expression. So perhaps AEnv has it's merrits after all?
+
   pe[] : ∀ {α} → AExp [] α → Imp [] α
   pe[] e = pe e []
 
@@ -463,7 +433,7 @@ module Correctness where
   open SimpleAEnv
   open Exp-Eval
 
-  -- TODO: rename occurences of stripα to typeof
+ 
   stripα = typeof
 
   stripΔ : ACtx → Ctx
@@ -514,10 +484,9 @@ module Correctness where
                   Γ'↝Γ'' ⊢ env' ↝ env'' →
                   let Γ↝Γ'' = ↝-trans Γ↝Γ' Γ'↝Γ'' in
                   Γ↝Γ'' ⊢ env ↝ env'' 
-    -- env↝trans {Γ} {.Γ''} {Γ''} {Γ↝Γ'} {.↝-refl} {env} {.env''} {env''} env↝env' (refl .env'') = env↝env'
-    -- env↝trans env↝env' (extend v env'↝env'') = extend v (env↝trans env↝env' env'↝env'')
+  
 
-    -- TODO: why does this work???
+ 
     env↝trans {.Γ'} {Γ'} {Γ''} {.↝-refl} {Γ'↝Γ''} {.env'} {env'} (refl .env') env'↝env''
       rewrite sym (lem-↝-refl-id  Γ'↝Γ'') = env'↝env'' 
     env↝trans (extend v env↝env') env'↝env'' = env↝trans (extend v env↝env') env'↝env''
@@ -527,11 +496,11 @@ module Correctness where
     -- the closure (Env Γ, ImpΓ α)
     Equiv : ∀ {α Γ} → Env Γ → Imp Γ α → EImp (stripα α) → Set 
     Equiv {AInt} env av v = av ≡ v
-    Equiv {AFun α₁ α₂} {Γ} env af f = -- extensional equality, given -- an extended context
+    Equiv {AFun α₁ α₂} {Γ} env af f = 
         ∀ {Γ' env' Γ↝Γ'} → (Γ↝Γ' ⊢ env ↝ env') →
         {ax : Imp Γ' α₁} → {x : EImp (stripα α₁)} →
         Equiv env' ax x → Equiv env' (af Γ↝Γ' ax) (f x)
-    Equiv {D x} {Γ} env av v = ev av env ≡ v -- actually we mean extensional equality
+    Equiv {D x} {Γ} env av v = ev av env ≡ v 
 
     -- Equivalence of AEnv and Env environments. They need to provide
     -- Equivalent bindings for a context Δ/stripΔ Δ. Again, the
@@ -706,83 +675,3 @@ module Correctness where
     ... | IA = IA
 
 
--- module PreciseAEnv where
---   open Exp-Eval
---   open import Relation.Binary.PropositionalEquality
-
---   data AEnv : Ctx → ACtx → Set where
---     [] : AEnv [] []
---     cons : ∀ { Γ Γ' Δ } (α : AType) → Γ ↝ Γ' → Imp Γ' α → AEnv Γ Δ → AEnv Γ' (α ∷ Δ)
-
---   consD : ∀ {Γ Δ} σ → AEnv Γ Δ → AEnv (σ ∷ Γ) (D σ ∷ Δ)
---   consD σ env = (cons (D σ) (↝-extend {τ = σ} ↝-refl) (EVar hd) (env))
-
---   lookup : ∀ {α Δ Γ} → AEnv Γ Δ → α ∈ Δ → Imp Γ α
---   lookup (cons α _ v env) hd =  v 
---   lookup (cons α₁ Γ↝Γ' v env) (tl x) = lookup (cons α₁ Γ↝Γ' v env) (tl x) 
-  
---   pe : ∀ {α Δ Γ} → AExp Δ α → AEnv Γ Δ → Imp Γ α
---   pe (Var x) env = lookup env x 
---   pe (AInt x) env = x
---   pe (AAdd e₁ e₂) env = pe e₁ env + pe e₂ env
---   pe (ALam {α} e) env = λ Γ↝Γ' → λ y → pe e (cons α Γ↝Γ' y env) 
---   pe (AApp e₁ e₂) env = ((pe e₁ env) ↝-refl) (pe e₂ env)
---   pe (DInt x) env = EInt x
---   pe (DAdd e e₁) env = EAdd (pe e env) (pe e₁ env)
---   pe (DLam {σ} e) env = ELam (pe e (consD σ env))
---   pe (DApp e e₁) env = EApp (pe e env) (pe e₁ env)
-
---   -- What is a suitable environment to interpret an AExp without pe? 
---   -- 1-1 mapping from AExp into Exp
---   stripα : AType → Type
---   stripα AInt = Int
---   stripα (AFun α₁ α₂) = Fun (stripα α₁) (stripα α₂)
---   stripα (D x) = x
-
---   stripΔ : ACtx → Ctx
---   stripΔ = map stripα
-
---   stripEnv : ∀ {Δ} →
---              let Γ = stripΔ Δ
---              in AEnv Γ Δ → Env Γ
---   stripEnv [] = []
---   stripEnv (cons AInt Γ↝Γ' v env) = v ∷ (stripEnv {!!})
---   stripEnv (cons (AFun α α₁) Γ↝Γ' v env) = {!!}
---   stripEnv (cons (D x) Γ↝Γ' v env) = {!!}
-
---   -- Extending a value environment according to an extension of a type environment 
---   data _⊢_↝_ {Γ} : ∀ {Γ'} → Γ ↝ Γ' → Env Γ → Env Γ' → Set where
---     refl : ∀ env → ↝-refl ⊢ env ↝ env
---     extend : ∀ {τ Γ' env env'} →  {Γ↝Γ' : Γ ↝ Γ'} →
---                (v : EImp τ) → (Γ↝Γ' ⊢  env ↝ env')  →
---                ↝-extend Γ↝Γ' ⊢ env ↝ (v ∷ env')
-  
---   -- It turns out that we have to shift Exp also
---   liftE : ∀ {τ Γ Γ'} → Γ ↝ Γ' → Exp Γ τ → Exp Γ' τ
---   liftE Γ↝Γ' e = elevate (↝↝-base Γ↝Γ') e
-  
---   Equiv : ∀ {α Γ} → Env Γ → Imp Γ α → EImp (stripα α) → Set 
---   Equiv {AInt} env av v = av ≡ v
---   Equiv {AFun α₁ α₂} {Γ} env av v = -- an pe-d static function is
---                                     -- equivalent to an EImp value
---                                     -- if given an suitably extended
---                                     -- environment, evaluating the
---                                     -- body yields something
---                                       -- equivalent to the EImp-value
---     ∀ {Γ' env' Γ↝Γ'} → (Γ↝Γ' ⊢ env ↝ env') →
---       {av' : Imp Γ' α₁} → {v' : EImp (stripα α₁)} →
---       Equiv env' av' v' → Equiv env' (av Γ↝Γ' av') (v v')
---   Equiv {D x} {Γ} env av v = ev av env ≡ v 
-
---   data Equiv-Env : ∀ {Δ} → let Γ = stripΔ Δ in
---                    AEnv Γ Δ → Env Γ → Set where
---     [] : Equiv-Env [] []
---     -- cons : ∀ {α Δ} → let Γ = stripΔ Δ in 
-           
---     --         (va : Imp Γ α) → (v : EImp (stripα α)) →
---     --         (env : Env Γ) → Equiv env v va →
---     --         (aenv : AEnv Γ Δ) →
---     --         Equiv-Env aenv env →
---     --         Equiv-Env {α ∷ Δ} (cons α (lift α (↝-extend ↝-refl) va)
---     --                                   (liftEnv (↝-extend ↝-refl) aenv))
---     --                           (v ∷ env)
