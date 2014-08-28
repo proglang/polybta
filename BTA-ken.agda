@@ -1,5 +1,5 @@
-module BTA-ken where
 -- specialize two-level typed terms to untyped lambda calculus
+module BTA-ken where
 
 open import Data.Nat hiding (_<_)
 open import Data.Bool
