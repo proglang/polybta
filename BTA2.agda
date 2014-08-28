@@ -95,13 +95,13 @@ mutual
 
   -- int | t -> t
   data SType : Set where
-    SInt  : SType
+    SNum  : SType
     SFun  : AType → AType → SType
 
 
 -- aux definitions
 ATInt : BT → AType
-ATInt bt = Ann bt SInt
+ATInt bt = Ann bt SNum
 ATFun  : BT → AType → AType → AType
 ATFun  bt at1 at2 = Ann bt (SFun at1 at2)
 
@@ -112,7 +112,7 @@ btof (Ann bt _) = bt
 
 -- constraint on types: well-formedness
 data wft : AType → Set where
-  wf-int  : ∀ {bt} → wft (Ann bt SInt)
+  wf-int  : ∀ {bt} → wft (Ann bt SNum)
   wf-fun  : ∀ {bt at1 at2} → wft at1 → wft at2
           → isTrue (bt ≼ btof at1) → isTrue (bt ≼ btof at2) → wft (Ann bt (SFun at1 at2))
 
@@ -125,7 +125,7 @@ lem-force-bt {D} {Ann D y'} bt≼at D=bt = refl
 
 -- Low-level types
 data Type : Set where
-  TInt : Type
+  TNum : Type
   TFun : Type → Type → Type
 
 -- translation from ATypes to low-level types
@@ -134,7 +134,7 @@ mutual
   strip (Ann _ σ) = strip' σ
 
   strip' : SType → Type
-  strip' SInt = TInt
+  strip' SNum = TNum
   strip' (SFun y y') = TFun (strip y) (strip y')
 
 
@@ -155,8 +155,8 @@ Ctx = List Type
 -- Typed expression
 data Exp (Γ : Ctx) : Type → Set where
   EVar : ∀ {τ} → τ ∈ Γ → Exp Γ τ
-  EInt : ℕ → Exp Γ TInt
-  EFun : ∀ {τ₁ τ₂} → Exp (τ₂ ∷ Γ) τ₁ → Exp Γ (TFun τ₂ τ₁)
+  ECst : ℕ → Exp Γ TNum
+  ELam : ∀ {τ₁ τ₂} → Exp (τ₂ ∷ Γ) τ₁ → Exp Γ (TFun τ₂ τ₁)
   EApp : ∀ {τ₁ τ₂} → Exp Γ (TFun τ₂ τ₁) → Exp Γ τ₂ → Exp Γ τ₁
 
 
@@ -179,15 +179,15 @@ count_tl' (tl xid) (cxle-peq e) = tl (count_tl xid e)
 
 lem-Exp-weakening' : ∀ {τ₂ τ₁ Γ Γ'} → Exp (τ₂ ∷ Γ) τ₁ → (τ₂ ∷ Γ) cx=≤ (τ₂ ∷ Γ') → Exp (τ₂ ∷ Γ') τ₁
 lem-Exp-weakening' (EVar x) e  = EVar (count_tl' x e)
-lem-Exp-weakening'  (EInt n) e = EInt n
-lem-Exp-weakening'  (EFun t) e = EFun (lem-Exp-weakening' t (cxle-plt e))
+lem-Exp-weakening'  (ECst n) e = ECst n
+lem-Exp-weakening'  (ELam t) e = ELam (lem-Exp-weakening' t (cxle-plt e))
 lem-Exp-weakening'  (EApp t1 t2) e = EApp (lem-Exp-weakening' t1 e) (lem-Exp-weakening' t2 e)   
 
 lem-Exp-weakening : ∀ {τ Γ Γ'} → Exp Γ τ → Γ cx-≤ Γ' → Exp Γ' τ
 lem-Exp-weakening t (cxle-eq Γ) = t
-lem-Exp-weakening (EInt n) e = EInt n
+lem-Exp-weakening (ECst n) e = ECst n
 lem-Exp-weakening (EVar x) e  = EVar (count_tl x e)
-lem-Exp-weakening (EFun t) (cxle-lt T e) = EFun (lem-Exp-weakening' t (cxle-peq (cxle-lt T e))) 
+lem-Exp-weakening (ELam t) (cxle-lt T e) = ELam (lem-Exp-weakening' t (cxle-peq (cxle-lt T e))) 
 lem-Exp-weakening (EApp t1 t2) e = EApp (lem-Exp-weakening t1 e) (lem-Exp-weakening t2 e)
 
 
@@ -197,10 +197,10 @@ lem-Exp-weakening (EApp t1 t2) e = EApp (lem-Exp-weakening t1 e) (lem-Exp-weaken
 ACtx = List AType
 
 data AExp (Δ : ACtx) : AType → Set where
-  AVar : ∀ {α} → α ∈ Δ → AExp Δ α
-  AInt : (bt : BT) → ℕ → AExp Δ (ATInt bt)
-  AFun : ∀ {α₁ α₂} (bt : BT) → wft (ATFun bt α₂ α₁) → AExp (α₂ ∷ Δ) α₁ → AExp Δ (ATFun bt α₂ α₁)
-  AApp : ∀ {α₁ α₂} (bt : BT) → wft (ATFun bt α₂ α₁) → AExp Δ (ATFun bt α₂ α₁) → AExp Δ α₂ → AExp Δ α₁
+  Var : ∀ {α} → α ∈ Δ → AExp Δ α
+  Cst : (bt : BT) → ℕ → AExp Δ (ATInt bt)
+  Lam : ∀ {α₁ α₂} (bt : BT) → wft (ATFun bt α₂ α₁) → AExp (α₂ ∷ Δ) α₁ → AExp Δ (ATFun bt α₂ α₁)
+  App : ∀ {α₁ α₂} (bt : BT) → wft (ATFun bt α₂ α₁) → AExp Δ (ATFun bt α₂ α₁) → AExp Δ α₂ → AExp Δ α₁
 
 
 -- stripping of contexts
@@ -219,14 +219,14 @@ mutual
   impTA Γ (Ann D σ) = Exp Γ (strip' σ)
   
   impTA' : Ctx → SType → Set
-  impTA' Γ SInt = ℕ
+  impTA' Γ SNum = ℕ
   impTA' Γ (SFun y y') = ∀ {Γ'} → Γ cx-≤ Γ' → impTA Γ' y → impTA Γ' y'
 
 lem-impTA-weakening : ∀ {α Γ Γ'} →
                       impTA Γ α →
                       Γ cx-≤ Γ' →
                       impTA Γ' α
-lem-impTA-weakening {Ann S SInt} v _ = v
+lem-impTA-weakening {Ann S SNum} v _ = v
 lem-impTA-weakening {Ann S (SFun x x₁)} f prf = λ prf' → f (lem-cx-≤-trans prf prf')
 lem-impTA-weakening {Ann D x₁} v prf = lem-Exp-weakening v prf 
 
@@ -255,20 +255,20 @@ lem-IsDynamic-by-wf (Ann D σ) _ = is-dyn σ
 
 
 pe : ∀ {Δ Γ α} → AEnv Γ Δ → AExp Δ α → impTA Γ α
-pe env (AVar idx) = lookup env idx
-pe env (AInt S i) = i
-pe env (AInt D i) = EInt i
-pe {Γ = Γ} env (AFun {α₁} {α₂} S prf exp) =
+pe env (Var idx) = lookup env idx
+pe env (Cst S i) = i
+pe env (Cst D i) = ECst i
+pe {Γ = Γ} env (Lam {α₁} {α₂} S prf exp) =
   λ {Γ'} (prf₁ : Γ cx-≤ Γ') (v : impTA Γ' α₂) → pe (env:: v (lem-AEnv-weakening env prf₁)) exp
-pe env (AFun {α₁} {α₂} D (wf-fun _ _ prf-2 prf-1) e)
+pe env (Lam {α₁} {α₂} D (wf-fun _ _ prf-2 prf-1) e)
   with lem-IsDynamic-by-wf α₁ prf-1 | lem-IsDynamic-by-wf α₂ prf-2
-pe {Γ = Γ} env (AFun {.(Ann D σ₁)} {.(Ann D σ₂)} D (wf-fun _ _ prf-1 prf-2) e)
+pe {Γ = Γ} env (Lam {.(Ann D σ₁)} {.(Ann D σ₂)} D (wf-fun _ _ prf-1 prf-2) e)
   | is-dyn σ₁ | is-dyn σ₂ =
-  EFun (pe (env:: (EVar hd) (lem-AEnv-weakening env ((strip' σ₂) cxle-∷ Γ))) e)
-pe {Γ = Γ} env (AApp S _ f e) = (pe env f (cxle-eq Γ)) (pe env e)
-pe env (AApp {α₁} {α₂} D (wf-fun _ _ prf₂ prf₁) f e)
+  ELam (pe (env:: (EVar hd) (lem-AEnv-weakening env ((strip' σ₂) cxle-∷ Γ))) e)
+pe {Γ = Γ} env (App S _ f e) = (pe env f (cxle-eq Γ)) (pe env e)
+pe env (App {α₁} {α₂} D (wf-fun _ _ prf₂ prf₁) f e)
   with lem-IsDynamic-by-wf α₁ prf₁ | lem-IsDynamic-by-wf α₂ prf₂
-pe env (AApp {.(Ann D σ₁)} {.(Ann D σ₂)} D (wf-fun _ _ prf₂ prf₁) f e) | is-dyn σ₁ | is-dyn σ₂ = EApp (pe env f) (pe env e)
+pe env (App {.(Ann D σ₁)} {.(Ann D σ₂)} D (wf-fun _ _ prf₂ prf₁) f e) | is-dyn σ₁ | is-dyn σ₂ = EApp (pe env f) (pe env e)
 
 
 
