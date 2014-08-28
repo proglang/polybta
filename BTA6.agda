@@ -1,10 +1,10 @@
-module BTA8 where
+--correctness proof of partial evaluation with liftable terms 
+module BTA6 where
 
 
 ----------------------------------------------
 -- Preliminaries: Imports and List-utilities
 ----------------------------------------------
-
 open import Data.Nat hiding  (_<_;_⊔_;_*_;equal)
 open import Data.Bool hiding (_∧_;_∨_) 
 open import Function using (_∘_)
@@ -17,40 +17,17 @@ open import Data.Empty
 open import Lib 
 
 
-
----------------------------------------
--- Start of the development:
----------------------------------------
-
--- Intro/Objective:
--------------------
--- The following development defines a (verified) specializer/partial
--- evaluator for a simply typed lambda calculus embedded in Agda using
--- deBruijn indices.
-
--- The residual language.
--------------------------
-
--- The residual language is a standard simply typed λ-calculus.  The
--- types are integers,functions,pairs,and sums.
 data Type : Set where
   Int : Type
   Fun : Type → Type → Type
-    --pair type on the residual type level
   _•_ : Type  → Type  → Type   
-  --sum type on the residual type level
   _⊎_ : Type → Type → Type
 
 Ctx = List Type
 
 
--- The type Exp describes the typed residual expressions. Variables
--- are represented by deBruijn indices that form references into the
--- typing context. The constructors and typing constraints are
--- standard.
 
--- TODO: citations for ``as usual'' and ``standard''
--- what?
+
 data Exp (Γ : Ctx) : Type → Set where
   EVar : ∀ {τ} → τ ∈ Γ → Exp Γ τ
   EInt : ℕ → Exp Γ Int
@@ -65,9 +42,7 @@ data Exp (Γ : Ctx) : Type → Set where
   ECase : ∀ {τ τ' τ''} → Exp Γ (τ ⊎ τ') → Exp (τ ∷ Γ) τ'' → Exp (τ' ∷ Γ) τ'' → Exp Γ τ''
 
 
--- The standard functional semantics of the residual expressions. 
--- TODO: citations for ``as usual'' and ``standard''
--- what?
+
 module Exp-Eval where
   -- interpretation of Exp types
   EImp : Type → Set
@@ -78,21 +53,17 @@ module Exp-Eval where
 
 
 
-  -- Environments containing values for free variables. An environment
-  -- is indexed by a typing context that provides the types for the
-  -- contained values.
   data Env : Ctx → Set where 
     [] : Env []
     _∷_ : ∀ {τ Γ} → EImp τ → Env Γ → Env (τ ∷ Γ)
   
-  -- Lookup a value in the environment, given a reference into the
-  -- associated typing context.
+
   lookupE : ∀ { τ Γ } → τ ∈ Γ → Env Γ → EImp τ
   lookupE hd (x ∷ env) = x
   lookupE (tl v) (x ∷ env) = lookupE v env
 
 
-  -- Evaluation of residual terms, given a suitably typed environment.
+ 
   ev : ∀ {τ Γ} → Exp Γ τ → Env Γ → EImp τ
   ev (EVar x) env = lookupE x env
   ev (EInt x) env = x
@@ -109,27 +80,18 @@ module Exp-Eval where
   ev (ECase e e₁ e₂) env | tr c  = (λ x → ev e₂ (x ∷ env)) c
 
 
--- The binding-time-annotated language. 
----------------------------------------
-
--- The type of a term determines the term's binding time. The type
--- constructors with an A-prefix denote statically bound integers and
--- functions. Terms with dynamic binding time have a `D' type. The `D'
--- type constructor simply wraps up a residual type.
 data AType : Set where
     AInt  : AType
     AFun  : AType → AType → AType
     D     : Type → AType
-    --pair type on the annotated type level
     _•_   : AType → AType → AType 
-    --sum  type on the annotated type level
     _⊎_   : AType → AType → AType 
 
 ACtx = List AType
 
 
 
--- The mapping from annotated types to residual types is straightforward.
+
 typeof : AType → Type
 typeof AInt = Int
 typeof (AFun α₁ α₂) = Fun (typeof α₁) (typeof α₂) 
@@ -138,59 +100,6 @@ typeof (α₁ • α₂) = typeof α₁ • typeof α₂
 typeof (α₁ ⊎ α₂) = typeof α₁ ⊎ typeof α₂
 
 
-
-
-           
--- The typed annotated terms: The binding times of variables is
--- determined by the corresponding type-binding in the context. In the
--- other cases, the A- and D-prefixes on term constructors inidicate
--- the corresponding binding times for the resulting terms.
-
-  ------------------------------------------------------------------------------------------------
-  -- Now the typed annotated terms are extended to inculde dynamic terms whose subterms are static 
-  ------------------------------------------------------------------------------------------------
-  ---------------  
-  --Some examples
-  ---------------
-  --a. first-order static value in a dynamic environment
-  -- DAdd (DInt 1) (AAdd (AInt 2) (AInt 3)) where AAdd (AInt 2) (AInt 3) : AExp [] AInt
-  -- DAdd (DInt 1) (AApp (ALam (Var hd)) (AInt 5)) where AApp (ALam (Var hd)) (AInt 5) : AExp [] AInt
-  --b. higher-order static value in a dynamic environment
-  -- DApp (ALam (Var hd)) (DInt 5) where ALam (Var hd) : AExp [] (AFun (D Int) (D Int))
-  -- DApp (ALam (ALam (AInt 0))) (DInt 5) where ALam (ALam (AInt 0)) : AExp [] (AFun (AFun (D Int) (D Int)) AInt)
-  -- DApp (ALam (ALam (DInt 0))) (DInt 5) where ALam (ALam (DInt 0)) : AExp [] (AFun (AFun AInt (D Int)) (D Int))
-  
-  --Clearly these terms are not well-typed and we need to modify [AExp] such that they have the right types which are
-  --compatible with the dynamic environment,or we can "lift" their static types to dynamic types so that they can be 
-  --used as dynamic sub-terms to be filled in the right dynamic environment. This,however,brings new difficulty when
-  --we try to partially evaluate term who contains "lifted" subterms. 
-   
-  ----------------
-  --new difficulty
-  ----------------
-  --Consider the evaluation of the following term
-  --DAdd (DInt 1) (Lift (AAdd (AInt 2) (AInt 3))) : AExp [] AInt
-  --the expected type after evaluation is,
-  --EAdd (EInt 1) ? : Exp [] Int where ? : Exp [] Int
-  --and one good candidate for "?" as,
-  --EInt (pe (AAdd (AInt 2) (AInt 3)) []) : Exp [] Int 
-  --where we wrap up the partial evaluation of the static subterm so
-  --that it fits with the rest of evaluation.
-  --However,we can not always "wrap up" a evaluated higher-order static 
-  --value so that it has the required residual type,
-  --ALam (Var hd) : AExp [] (AFun AInt AInt)
-  --the required type of its lifted term as,
-  --? : Exp [] (Fun Int Int)
-  --which can not be constructed from [λ Γ↝Γ' x → x : []↝Γ' → ℕ → ℕ]
-  --for the input of the static function is evaluated to be a natural 
-  --number which can not be matched with the type of the input of the
-  --required residual term. It is then clear that we need to impose 
-  --restriction upon terms to be lifted.
-  -------------------------
-  --restriction for lifting
-  -------------------------
--------------------------------------------------------------
--- The interpretation of annotated types.
 Imp : Ctx → AType → Set
 Imp Γ (AInt) = ℕ
 Imp Γ (AFun α₁ α₂) = ∀ {Γ'} → Γ ↝ Γ' → (Imp Γ' α₁ → Imp Γ' α₂)
@@ -226,147 +135,7 @@ elevate Γ↝Γ'↝Γ'' (ECase c e₁ e₂) = ECase (elevate Γ↝Γ'↝Γ'' c) 
 
 liftE : ∀ {τ Γ Γ'} → Γ ↝ Γ' → Exp Γ τ → Exp Γ' τ
 liftE Γ↝Γ' e = elevate (↝↝-base Γ↝Γ') e
--------------------------------------------------------------  
--- --case 1. a first-order static value in a dynamic environment
--- lift1 : AExp [] AInt
--- lift1 = (AInt 0)
 
--- e1 : Imp [] AInt
--- e1 = 0
-
--- lifted1 : Exp [] (typeof AInt)
--- lifted1 = EInt e1
--- --case 2. higher-order static function in a dynamic environment
--- --a. a function whose input argument is of static integer
--- --lift2 : AExp [] (AFun AInt AInt)
--- --lift2 = ALam (Var hd)
-
--- --e2 : Imp [] (AFun AInt AInt)
--- --e2 = λ Γ↝Γ' x → x
-
--- --lifted2 : Exp [] (typeof (AFun AInt AInt))
--- --lifted2 = ELam {!!}
--- --Note that as explained above it is impossible to construct the right term using [e2]
--- --to fill in the above hole!
-
--- --b. a function whose input argument is of dynamic integer
--- --b.1. when return type is of dynamic integer
--- lift3 : AExp [] (AFun (D Int) (D Int))
--- lift3 = ALam (Var hd)
-
--- e3 : Imp [] (AFun (D Int) (D Int))
--- e3 =  λ Γ↝Γ' x → x
-
--- liftede3 : Exp [] (typeof (AFun (D Int) (D Int)))
--- liftede3 = ELam (e3 (↝-extend ↝-refl) (EVar hd))
--- --b.2. when return type is of static integer
--- lift4 : AExp [] (AFun (D Int) AInt)
--- lift4 = ALam (AInt 0)
-
--- e4 : Imp [] (AFun (D Int) AInt)
--- e4 = λ Γ↝Γ' x → 0
-
--- liftede4 : Exp [] (typeof (AFun (D Int) AInt))
--- liftede4 = ELam ( EInt {Int ∷ []} (e4 (↝-extend ↝-refl) (EVar hd)))
-
--- --c. a function whose input argument is of static function type
--- --c.1. static function type returns a static integer
--- --lift5 : AExp []  (AFun (AFun AInt AInt) AInt)
--- --lift5 = ALam (AApp (Var hd) (AInt 0))
-
--- --e5 : Imp []  (AFun (AFun AInt AInt) AInt)
--- --e5 = λ Γ↝Γ' x → x ↝-refl 0
-
--- --liftede5 : Exp [] (typeof ( AFun (AFun AInt AInt) AInt))
--- --liftede5 =  ELam (EInt (e5 (↝-extend {τ = Fun Int Int} ↝-refl) (λ Γ↝Γ' e' → {!!})))
--- --Note that again it is impossible to construct the right residual term
-
--- --c.2. static function type returns a dynamic integer
--- --c.2.1. the input of the function type is of static integer
--- lift6 : AExp []  (AFun (AFun AInt (D Int)) (D Int))
--- lift6 = ALam (AApp (Var hd) (AInt 0))
-
--- e6 : Imp []  (AFun (AFun AInt (D Int)) (D Int))
--- e6 = λ Γ↝Γ' x → x ↝-refl 0
-
--- liftede6 : Exp [] (typeof ( AFun (AFun AInt (D Int)) (D Int)))
--- liftede6 =  ELam ((e6 (↝-extend {τ = Fun Int Int} ↝-refl) 
---                 (λ Γ↝Γ' e' → EApp (liftE Γ↝Γ' (EVar {Fun Int Int ∷ []} hd)) (EInt e'))))
--- --c.2.1. the input of the function type is of dynamic integer
--- lift7 : AExp []  (AFun (AFun (D Int) (D Int)) (D Int))
--- lift7 = ALam (AApp (Var hd) (DInt 0))
-
--- e7 : Imp []  (AFun (AFun (D Int) (D Int)) (D Int))
--- e7 = λ Γ↝Γ' x → x ↝-refl (EInt 0)
-
--- liftede7 : Exp [] (typeof ( AFun (AFun (D Int) (D Int)) (D Int)))
--- liftede7 =  ELam ((e7 (↝-extend {τ = Fun Int Int} ↝-refl) 
---                 (λ Γ↝Γ' e' → EApp (liftE Γ↝Γ' (EVar {Fun Int Int ∷ []} hd)) e')))
--- --c.3. the output of the function type is of higher-order static value
--- --c.3.1 the return value has one static integer as input
--- -- lift8 : AExp []  (AFun (D Int) (AFun AInt (D Int)))
--- -- lift8 = ALam (ALam (Var (tl hd)))
-
--- -- e8 : Imp []  (AFun (D Int) (AFun AInt (D Int)))
--- -- e8 = λ Γ↝Γ' x Γ'↝Γ'' y → liftE Γ'↝Γ'' x 
-
--- -- liftede8 : Exp [] (typeof ( AFun (D Int) (AFun AInt (D Int))))
--- -- liftede8 =  ELam (ELam (e8 (↝-extend (↝-extend ↝-refl)) (EVar (tl hd)) ↝-refl {!!}))
-
--- --c.3.2 the return value has one dynamic integer as input
--- lift9 : AExp []  (AFun (D Int) (AFun (D Int) (D Int)))
--- lift9 = ALam (ALam (Var (tl hd)))
-
--- e9 : Imp []  (AFun (D Int) (AFun (D Int) (D Int)))
--- e9 = λ Γ↝Γ' x Γ'↝Γ'' y → liftE Γ'↝Γ'' x 
-
--- liftede9 : Exp [] (typeof ( AFun (D Int) (AFun (D Int) (D Int))))
--- liftede9 =  ELam (ELam (e9 (↝-extend (↝-extend ↝-refl)) (EVar (tl hd)) ↝-refl (EVar hd)))
-
--- --d. static pairs and sums in dynamic environment
--- --d.1. identity function with  static sum as its input 
--- lift10 : AExp [] (AFun ((D Int) ⊎ (D Int)) ((D Int) ⊎ (D Int)))
--- lift10 = ALam (Var hd)
-
--- e10 : Imp [] (AFun ((D Int) ⊎ (D Int)) ((D Int) ⊎ (D Int)))
--- e10 =  λ Γ↝Γ' x → x
-
-
--- liftede10 : Exp [] (typeof (AFun ((D Int) ⊎ (D Int)) ((D Int) ⊎ (D Int))))
--- liftede10 = ELam {!e10!}
-
--- --d.1. identity function with  static sum as its input 
--- lift11 : AExp [] (AFun ((D Int) • (D Int)) ((D Int) • (D Int)))
--- lift11 = ALam (Var hd)
-
--- e11 : Imp [] (AFun ((D Int) • (D Int)) ((D Int) • (D Int)))
--- e11 =  λ Γ↝Γ' x → x
-
-
--- liftede11 : Exp [] (typeof (AFun ((D Int) • (D Int)) ((D Int) • (D Int))))
--- liftede11 = ELam (fst (e11 (↝-extend ↝-refl) (EFst (EVar hd) , ESnd (EVar hd))) ,
---                     snd (e11 (↝-extend ↝-refl) (EFst (EVar hd) , ESnd (EVar hd))))
-
---Note that the above two examples in section "d" clearly shows that 
---"static functions with inputs of static sum type are not liftable
--- while with inputs of static pair type are liftable ".
-
-
-
----------------------------
---summary on liftable terms
----------------------------
---a. Regarding static first-order static value (static integer) in dynamic environment
---   All terms of static integer type are liftable
---b. Regarding static higher-order static value in dynamic environment
---b.1. given that output value is liftable
---     • when input is of first-order dynamic type,liftable 
---     • when input is of higher-order static type and output 
---       of that input is of dynamic type,liftable
---b.2. given that input value is liftable
---     • when output is of first-order type,liftable
---     • when output is of higher-order type and inputs 
---       of that type are of dynamic type,liftable
 
 -------------------------------------------
 --specification of the liftable restriction
@@ -414,20 +183,6 @@ data AExp (Δ : ACtx) : AType → Set where
   ↑     : ∀ {α} → Liftable α → AExp Δ α  → AExp Δ (D (typeof α))
 
 
-
--- The terms of AExp assign a binding time to each subterm. For
--- program specialization, we interpret terms with dynamic binding
--- time as the programs subject to specialization, and their subterms
--- with static binding time as statically known inputs. A partial
--- evaluation function (or specializer) then compiles the program into
--- a residual term for that is specialized for the static inputs. The
--- main complication when defining partial evaluation as a total,
--- primitively recursive function will be the treatment of the De
--- Bruijn variables of non-closed residual expressions.
-
-
-
-
 lift : ∀ {Γ Γ'} α → Γ ↝ Γ' → Imp Γ α → Imp Γ' α 
 lift AInt p v = v
 lift (AFun x x₁) Γ↝Γ' v = λ Γ'↝Γ'' → v (↝-trans Γ↝Γ' Γ'↝Γ'')
@@ -438,29 +193,22 @@ lift (α₁ ⊎ α₂) Γ↝Γ' (tr v) = tr (lift α₂ Γ↝Γ' v)
 
 
 
-
-
 module SimpleAEnv where
   -- A little weaker, but much simpler
   data AEnv (Γ : Ctx) : ACtx → Set where
     [] : AEnv Γ []
-    --cons : ∀ {Δ} (α : AType) → Imp Γ α → AEnv Γ Δ → AEnv Γ (α ∷ Δ)
     cons : ∀ {Δ} {α : AType} → Imp Γ α → AEnv Γ Δ → AEnv Γ (α ∷ Δ)
   
   lookup : ∀ {α Δ Γ} → AEnv Γ Δ → α ∈ Δ → Imp Γ α
   lookup [] ()
-  --lookup {α} (cons .α  x aenv) hd = x
-  --lookup {α} (cons .y  x aenv) (tl {.α} {y} id) = lookup aenv id
   lookup {α} (cons x aenv) hd = x
   lookup {α} (cons x aenv) (tl {.α} {y} id) = lookup aenv id
   
   liftEnv : ∀ {Γ Γ' Δ} → Γ ↝ Γ' → AEnv Γ Δ → AEnv Γ' Δ
   liftEnv Γ↝Γ' [] = []
-  --liftEnv Γ↝Γ' (cons α x env) = cons α (lift α Γ↝Γ' x) (liftEnv Γ↝Γ' env)
   liftEnv Γ↝Γ' (cons {α = α} x env) = cons {α = α} (lift α Γ↝Γ' x) (liftEnv Γ↝Γ' env)
   
   consD : ∀ {Γ Δ} σ → AEnv Γ Δ → AEnv (σ ∷ Γ) (D σ ∷ Δ)
-  --consD σ env = (cons (D σ) (EVar hd) (liftEnv (↝-extend {τ = σ} ↝-refl) env))
   consD σ env = (cons {α = D σ} (EVar hd) (liftEnv (↝-extend {τ = σ} ↝-refl) env))
 
 
@@ -481,14 +229,6 @@ module SimpleAEnv where
 
     embed : ∀ {Γ α} → Liftable⁻ α → Exp Γ (typeof α) → (Imp Γ α)
     embed (D τ) e = e
-    -- embed (ty ⊎ ty₁) e = {!  (ECase e (EVar hd) ?)!}
-    -- embed (ty ⊎ ty₁) (EVar x) = {!!}
-    -- embed (ty ⊎ ty₁) (EApp e e₁) = {!!}
-    -- embed (ty ⊎ ty₁) (Tl e) = tl (embed ty e)
-    -- embed (ty ⊎ ty₁) (Tr e) = tr (embed ty₁ e)
-    -- embed (ty ⊎ ty₁) (EFst e) = {!!}
-    -- embed (ty ⊎ ty₁) (ESnd e) = {!!}
-    -- embed (ty ⊎ ty₁) (ECase e e₁ e₂) = {!!}
     embed (ty • ty₁) e = embed ty (EFst e) , embed ty₁ (ESnd e)
     embed {Γ} (AFun {α} ty₁ ty₂) e = 
       λ Γ↝Γ' v₁ → embed ty₂ (EApp (liftE Γ↝Γ' e) (lift' ty₁ v₁))
@@ -531,7 +271,7 @@ module Correctness where
   open SimpleAEnv
   open Exp-Eval
 
-  -- TODO: rename occurences of stripα to typeof
+ 
   stripα = typeof
 
   stripΔ : ACtx → Ctx
@@ -568,26 +308,11 @@ module Correctness where
   strip (↑ x e) = strip e
 
 
-  
-
-  --liftE : ∀ {τ Γ Γ'} → Γ ↝ Γ' → Exp Γ τ → Exp Γ' τ
-  --liftE Γ↝Γ' e = elevate (↝↝-base Γ↝Γ') e
 
   stripLift : ∀ {α Δ Γ} → stripΔ Δ ↝ Γ → AExp Δ α  → Exp Γ (stripα α)
   stripLift Δ↝Γ = liftE Δ↝Γ ∘ strip
   
-  -- --------------------------------
-  -- --"lift-strip" equivalence lemma
-  -- --------------------------------
-  -- ↑≡↓ : ∀ x e env env' aenv → Equiv-Env env' aenv env  → ev (lift' x (pe e aenv)) env'  ≡ ev (strip e) env
-  -- ↑≡↓ x e env env' aenv eqenv = {!!} 
- 
 
-  -- We want to show that pe preserves the semantics of the
-  -- program. Roughly, Exp-Eval.ev-ing a stripped program is
-  -- equivalent to first pe-ing a program and then Exp-Eval.ev-ing the
-  -- result. But as the pe-result of a static function ``can do more''
-  -- than the (ev ∘ strip)ped function we need somthing more refined.
 
   module Equiv where
     open import Relation.Binary.PropositionalEquality
@@ -622,24 +347,10 @@ module Correctness where
     Equiv {D x} env av v = ev av env ≡ v
     Equiv {α • α₁} env (ffst , ssnd) (ffst₁ , ssnd₁) = Equiv {α} env ffst ffst₁ ∧ Equiv {α₁} env ssnd ssnd₁
     Equiv {α ⊎ α₁} env (tl a) (tl a₁) = Equiv {α} env a a₁
-    --------------------------------------------------------------------
-    Equiv {α ⊎ α₁} env (tl a) (tr b) = ⊥  -- Interesting case!
-    Equiv {α ⊎ α₁} env (tr b) (tl a) = ⊥  -- Interesting case!
-    --------------------------------------------------------------------
+    Equiv {α ⊎ α₁} env (tl a) (tr b) = ⊥ 
+    Equiv {α ⊎ α₁} env (tr b) (tl a) = ⊥ 
     Equiv {α ⊎ α₁} env (tr b) (tr b₁) = Equiv {α₁} env b b₁ 
-   -- Equiv {AInt} env av v = av ≡ v
-   -- Equiv {AFun α₁ α₂} {Γ} env av v = -- extensional equality, given -- an extended context
-   --     ∀ {Γ' env' Γ↝Γ'} → (Γ↝Γ' ⊢ env ↝ env') →
-   --     {av' : Imp Γ' α₁} → {v' : EImp (stripα α₁)} →
-   --     Equiv env' av' v' → Equiv env' (av Γ↝Γ' av') (v v')
-   -- Equiv {D x} {Γ} env av v = ev av env ≡ v -- actually we mean extensional equality
-                                             -- TODO: Define a proper equivalence for EImps
-    
-   
-
-    -- Equivalence of AEnv and Env environments. They need to provide
-    -- Equivalent bindings for a context Δ/stripΔ Δ. Again, the
-    -- equivalence is defined for a closure (Env Γ', AEnv Γ' Δ).
+ 
     data Equiv-Env {Γ' : _} (env' : Env Γ') :
       ∀ {Δ} → let Γ = stripΔ Δ in
       AEnv Γ' Δ → Env Γ → Set where
@@ -653,15 +364,8 @@ module Correctness where
               --Equiv-Env env' (cons α va (aenv)) (v ∷ env)
               Equiv-Env env' (cons {α = α} va (aenv)) (v ∷ env)
 
-  --------------------------------
-  --"lift-strip" equivalence lemma
-  --------------------------------
-    -- ↑≡↓ : ∀ {Γ' Δ α} x e env env' aenv → Equiv-Env {Γ'} env' {Δ} aenv env  → ev (lift' {Γ = Γ'} {α = α} x (pe e aenv)) env'  ≡ ev (strip e) env
-    -- ↑≡↓ x e env env' aenv eqenv = {!!} 
 
-
-
-  -- Now for the proof...
+ 
   module Proof where
     open Equiv
     open import Relation.Binary.PropositionalEquality
