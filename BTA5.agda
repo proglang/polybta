@@ -17,7 +17,7 @@ open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality
 open import Data.Empty
 
-open import Lib 
+open import BTA-Lib 
 
 -- The residual language is a standard simply typed λ-calculus.  The
 -- types are integers,functions,pairs,and sums.
