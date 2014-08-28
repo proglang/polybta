@@ -127,3 +127,15 @@ open ListExtension public
 →tr px py a b c rewrite c | b with px | a 
 ... | H | refl = refl 
     ---------------------------------
+
+-- data _↝_ {A : Set} : List A → List A → Set where
+--   refl   : ∀ {Γ}      → Γ ↝ Γ
+--   extend : ∀ {Γ Γ' τ} → Γ ↝ Γ' → Γ ↝ (τ ∷ Γ')
+
+-- -- Extending a list in the middle: 
+-- data _↝_↝_ {A : Set} : List A → List A → List A → Set where
+--   -- First prepend the extension list to the common suffix
+--   refl   : ∀ {Γ Γ''} → Γ ↝ Γ'' → Γ ↝ [] ↝ Γ'' 
+--   -- ... and then add the common prefix
+--   extend : ∀ {Γ Γ' Γ'' τ} →
+--                Γ ↝ Γ' ↝ Γ'' → (τ ∷ Γ) ↝ (τ ∷ Γ') ↝ (τ ∷ Γ'') 
