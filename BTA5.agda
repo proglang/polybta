@@ -22,38 +22,38 @@ open import Lib
 -- The residual language is a standard simply typed λ-calculus.  The
 -- types are integers,functions,pairs,and sums.
 data Type : Set where
-  Int : Type
+  Num : Type
   Fun : Type → Type → Type
   --pair type on the residual type level
-  _•_ : Type  → Type  → Type   
+  Prd : Type  → Type  → Type   
   --sum type on the residual type level
-  _⊎_ : Type → Type → Type
+  Sum : Type → Type → Type
 
 Ctx = List Type
 
 
 data Exp (Γ : Ctx) : Type → Set where
   EVar : ∀ {τ} → τ ∈ Γ → Exp Γ τ
-  EInt : ℕ → Exp Γ Int
-  EAdd : Exp Γ Int → Exp Γ Int -> Exp Γ Int
+  ECst : ℕ → Exp Γ Num
+  EAdd : Exp Γ Num → Exp Γ Num -> Exp Γ Num
   ELam : ∀ {τ τ'} → Exp (τ ∷ Γ) τ' → Exp Γ (Fun τ τ')
   EApp : ∀ {τ τ'} → Exp Γ (Fun τ τ')  → Exp Γ τ → Exp Γ τ'
-  _,_  : ∀ {τ τ'} → Exp Γ τ → Exp Γ τ' → Exp Γ (τ • τ')
-  Tl   : ∀ {τ τ'} → Exp Γ τ → Exp Γ (τ ⊎ τ')
-  Tr   : ∀ {τ τ'} → Exp Γ τ' → Exp Γ (τ ⊎ τ') 
-  EFst : ∀ {τ τ'} → Exp Γ (τ • τ') → Exp Γ τ
-  ESnd : ∀ {τ τ'} → Exp Γ (τ • τ') → Exp Γ τ'
-  ECase : ∀ {τ τ' τ''} → Exp Γ (τ ⊎ τ') → Exp (τ ∷ Γ) τ'' → Exp (τ' ∷ Γ) τ'' → Exp Γ τ''
+  EPair  : ∀ {τ τ'} → Exp Γ τ → Exp Γ τ' → Exp Γ (Prd τ τ')
+  EInl   : ∀ {τ τ'} → Exp Γ τ → Exp Γ (Sum τ τ')
+  EInr   : ∀ {τ τ'} → Exp Γ τ' → Exp Γ (Sum τ τ') 
+  EFst : ∀ {τ τ'} → Exp Γ (Prd τ  τ') → Exp Γ τ
+  ESnd : ∀ {τ τ'} → Exp Γ (Prd τ τ') → Exp Γ τ'
+  ECase : ∀ {τ τ' τ''} → Exp Γ (Sum τ τ') → Exp (τ ∷ Γ) τ'' → Exp (τ' ∷ Γ) τ'' → Exp Γ τ''
 
 
 
 module Exp-Eval where
   -- interpretation of Exp types
-  EImp : Type → Set
-  EImp Int = ℕ
-  EImp (Fun ty ty₁) = EImp ty → EImp ty₁
-  EImp (ty • ty₁) = EImp ty * EImp ty₁
-  EImp (ty ⊎ ty₁) = EImp ty ⨄ EImp ty₁
+  TInt : Type → Set
+  TInt Num = ℕ
+  TInt (Fun ty ty₁) = TInt ty → TInt ty₁
+  TInt (Prd ty ty₁) = TInt ty * TInt ty₁
+  TInt (Sum ty ty₁) = TInt ty ⨄ TInt ty₁
 
 
 
@@ -62,25 +62,25 @@ module Exp-Eval where
   -- contained values.
   data Env : Ctx → Set where 
     [] : Env []
-    _∷_ : ∀ {τ Γ} → EImp τ → Env Γ → Env (τ ∷ Γ)
+    _∷_ : ∀ {τ Γ} → TInt τ → Env Γ → Env (τ ∷ Γ)
   
   -- Lookup a value in the environment, given a reference into the
   -- associated typing context.
-  lookupE : ∀ { τ Γ } → τ ∈ Γ → Env Γ → EImp τ
+  lookupE : ∀ { τ Γ } → τ ∈ Γ → Env Γ → TInt τ
   lookupE hd (x ∷ env) = x
   lookupE (tl v) (x ∷ env) = lookupE v env
 
 
   -- Evaluation of residual terms, given a suitably typed environment.
-  ev : ∀ {τ Γ} → Exp Γ τ → Env Γ → EImp τ
+  ev : ∀ {τ Γ} → Exp Γ τ → Env Γ → TInt τ
   ev (EVar x) env = lookupE x env
-  ev (EInt x) env = x
+  ev (ECst x) env = x
   ev (EAdd e e₁) env = ev e env + ev e₁ env
   ev (ELam e) env = λ x → ev e (x ∷ env)
   ev (EApp e e₁) env = ev e env (ev e₁ env)
-  ev (e , e₁) env = ev e env , (ev e₁ env)
-  ev (Tl e) env = tl (ev e env)
-  ev (Tr e) env = tr (ev e env)
+  ev (EPair e e₁) env = ev e env , (ev e₁ env)
+  ev (EInl e) env = tl (ev e env)
+  ev (EInr e) env = tr (ev e env)
   ev (EFst e) env = fst (ev e env)
   ev (ESnd e) env = snd (ev e env)
   ev (ECase e e₁ e₂) env with ev e env
@@ -90,13 +90,13 @@ module Exp-Eval where
 
 
 data AType : Set where
-    AInt  : AType
-    AFun  : AType → AType → AType
+    SNum  : AType
+    SFun  : AType → AType → AType
     D     : Type → AType
     --pair type on the annotated type level
-    _•_   : AType → AType → AType 
+    SPrd   : AType → AType → AType 
     --sum  type on the annotated type level
-    _⊎_   : AType → AType → AType 
+    SSum   : AType → AType → AType 
 
 ACtx = List AType
 
@@ -104,11 +104,11 @@ ACtx = List AType
 
 
 typeof : AType → Type
-typeof AInt = Int
-typeof (AFun α₁ α₂) = Fun (typeof α₁) (typeof α₂) 
+typeof SNum = Num
+typeof (SFun α₁ α₂) = Fun (typeof α₁) (typeof α₂) 
 typeof (D x) = x
-typeof (α₁ • α₂) = typeof α₁ • typeof α₂
-typeof (α₁ ⊎ α₂) = typeof α₁ ⊎ typeof α₂
+typeof (SPrd α₁ α₂) = Prd (typeof α₁) (typeof α₂)
+typeof (SSum α₁ α₂) = Sum (typeof α₁) (typeof α₂)
 
 
 
@@ -116,28 +116,28 @@ typeof (α₁ ⊎ α₂) = typeof α₁ ⊎ typeof α₂
 
 data AExp (Δ : ACtx) : AType → Set where
   Var : ∀ {α} → α ∈ Δ → AExp Δ α
-  AInt : ℕ → AExp Δ AInt
-  AAdd : AExp Δ AInt → AExp Δ AInt → AExp Δ AInt
-  ALam : ∀ {α₁ α₂}   → AExp (α₁ ∷ Δ) α₂ → AExp Δ (AFun α₁ α₂)
-  AApp : ∀ {α₁ α₂}   → AExp Δ (AFun α₂ α₁) → AExp Δ α₂ → AExp Δ α₁
-  DInt : ℕ → AExp Δ (D Int)
-  DAdd : AExp Δ (D Int) → AExp Δ (D Int) → AExp Δ (D Int)
+  SCst : ℕ → AExp Δ SNum
+  SAdd : AExp Δ SNum → AExp Δ SNum → AExp Δ SNum
+  SLam : ∀ {α₁ α₂}   → AExp (α₁ ∷ Δ) α₂ → AExp Δ (SFun α₁ α₂)
+  SApp : ∀ {α₁ α₂}   → AExp Δ (SFun α₂ α₁) → AExp Δ α₂ → AExp Δ α₁
+  DCst : ℕ → AExp Δ (D Num)
+  DAdd : AExp Δ (D Num) → AExp Δ (D Num) → AExp Δ (D Num)
   DLam : ∀ {σ₁ σ₂}   → AExp ((D σ₁) ∷ Δ) (D σ₂) → AExp Δ (D (Fun σ₁ σ₂))
   DApp : ∀ {α₁ α₂}   → AExp Δ (D (Fun α₂ α₁)) → AExp Δ (D α₂) → AExp Δ (D α₁)
   -- Static pairs and sums
-  _,_  : ∀ {α₁ α₂} → AExp Δ α₁ → AExp Δ α₂ → AExp Δ (α₁ • α₂)
-  Tl   : ∀ {α₁ α₂} → AExp Δ α₁ → AExp Δ (α₁ ⊎ α₂)
-  Tr   : ∀ {α₁ α₂} → AExp Δ α₂ → AExp Δ (α₁ ⊎ α₂)
-  Fst  : ∀ {α₁ α₂} → AExp Δ (α₁ • α₂) → AExp Δ α₁
-  Snd  : ∀ {α₁ α₂} → AExp Δ (α₁ • α₂) → AExp Δ α₂
-  Case : ∀ {α₁ α₂ α₃} → AExp Δ (α₁ ⊎ α₂) → AExp (α₁ ∷ Δ) α₃ → AExp (α₂ ∷ Δ) α₃ → AExp Δ α₃
+  SPair  : ∀ {α₁ α₂} → AExp Δ α₁ → AExp Δ α₂ → AExp Δ (SPrd α₁ α₂)
+  SInl   : ∀ {α₁ α₂} → AExp Δ α₁ → AExp Δ (SSum α₁ α₂)
+  SInr   : ∀ {α₁ α₂} → AExp Δ α₂ → AExp Δ (SSum α₁ α₂)
+  SFst  : ∀ {α₁ α₂} → AExp Δ (SPrd α₁ α₂) → AExp Δ α₁
+  SSnd  : ∀ {α₁ α₂} → AExp Δ (SPrd α₁ α₂) → AExp Δ α₂
+  SCase : ∀ {α₁ α₂ α₃} → AExp Δ (SSum α₁ α₂) → AExp (α₁ ∷ Δ) α₃ → AExp (α₂ ∷ Δ) α₃ → AExp Δ α₃
   -- Dynamic pairs and sums
-  _ḋ_  : ∀ {σ₁ σ₂} → AExp Δ (D σ₁) → AExp Δ (D σ₂) → AExp Δ (D (σ₁ • σ₂))
-  DTl   : ∀ {σ₁ σ₂} → AExp Δ (D σ₁) → AExp Δ (D (σ₁ ⊎ σ₂))
-  DTr   : ∀ {σ₁ σ₂} → AExp Δ (D σ₂) → AExp Δ (D (σ₁ ⊎ σ₂))
-  DFst  : ∀ {σ₁ σ₂} → AExp Δ (D (σ₁ • σ₂)) → AExp Δ (D σ₁)
-  DSnd  : ∀ {σ₁ σ₂} → AExp Δ (D (σ₁ • σ₂)) → AExp Δ (D σ₂)
-  DCase : ∀ {σ₁ σ₂ σ₃} → AExp Δ (D (σ₁ ⊎ σ₂)) → AExp ((D σ₁) ∷ Δ) (D σ₃) → AExp ((D σ₂) ∷ Δ) (D σ₃) → AExp Δ (D σ₃)
+  DPair  : ∀ {σ₁ σ₂} → AExp Δ (D σ₁) → AExp Δ (D σ₂) → AExp Δ (D (Prd σ₁ σ₂))
+  DInl   : ∀ {σ₁ σ₂} → AExp Δ (D σ₁) → AExp Δ (D (Sum σ₁ σ₂))
+  DInr   : ∀ {σ₁ σ₂} → AExp Δ (D σ₂) → AExp Δ (D (Sum σ₁ σ₂))
+  DFst  : ∀ {σ₁ σ₂} → AExp Δ (D (Prd σ₁ σ₂)) → AExp Δ (D σ₁)
+  DSnd  : ∀ {σ₁ σ₂} → AExp Δ (D (Prd σ₁ σ₂)) → AExp Δ (D σ₂)
+  DCase : ∀ {σ₁ σ₂ σ₃} → AExp Δ (D (Sum σ₁ σ₂)) → AExp ((D σ₁) ∷ Δ) (D σ₃) → AExp ((D σ₂) ∷ Δ) (D σ₃) → AExp Δ (D σ₃)
 
 
 
@@ -187,51 +187,51 @@ data AExp (Δ : ACtx) : AType → Set where
   -------------------------
 -------------------------------------------------------------
 -- The interpretation of annotated types.
-Imp : Ctx → AType → Set
-Imp Γ (AInt) = ℕ
-Imp Γ (AFun α₁ α₂) = ∀ {Γ'} → Γ ↝ Γ' → (Imp Γ' α₁ → Imp Γ' α₂)
-Imp Γ (D σ) = Exp Γ σ
-Imp Γ (α₁ • α₂) = (Imp Γ α₁) * (Imp Γ α₂)
-Imp Γ (α₁ ⊎ α₂) = (Imp Γ α₁) ⨄ (Imp Γ α₂)
+ATInt : Ctx → AType → Set
+ATInt Γ (SNum) = ℕ
+ATInt Γ (SFun α₁ α₂) = ∀ {Γ'} → Γ ↝ Γ' → (ATInt Γ' α₁ → ATInt Γ' α₂)
+ATInt Γ (D σ) = Exp Γ σ
+ATInt Γ (SPrd α₁ α₂) = (ATInt Γ α₁) * (ATInt Γ α₂)
+ATInt Γ (SSum α₁ α₂) = (ATInt Γ α₁) ⨄ (ATInt Γ α₂)
 
 elevate-var : ∀ {Γ Γ'} {τ : Type} → Γ ↝ Γ' → τ ∈ Γ → τ ∈ Γ'
-elevate-var ↝-refl x = x
-elevate-var (↝-extend Γ↝Γ') x = tl (elevate-var Γ↝Γ' x)
+elevate-var refl x = x
+elevate-var (extend Γ↝Γ') x = tl (elevate-var Γ↝Γ' x)
 
 
 elevate-var2 : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → τ ∈ Γ → τ ∈ Γ''
-elevate-var2 (↝↝-base x) x₁ = elevate-var x x₁
-elevate-var2 (↝↝-extend Γ↝Γ'↝Γ'') hd = hd
-elevate-var2 (↝↝-extend Γ↝Γ'↝Γ'') (tl x) = tl (elevate-var2 Γ↝Γ'↝Γ'' x)
+elevate-var2 (refl x) x₁ = elevate-var x x₁
+elevate-var2 (extend Γ↝Γ'↝Γ'') hd = hd
+elevate-var2 (extend Γ↝Γ'↝Γ'') (tl x) = tl (elevate-var2 Γ↝Γ'↝Γ'' x)
 
 
 
 
 elevate : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → Exp Γ τ → Exp Γ'' τ
 elevate Γ↝Γ'↝Γ'' (EVar x) = EVar (elevate-var2 Γ↝Γ'↝Γ'' x)
-elevate Γ↝Γ'↝Γ'' (EInt x) = EInt x
+elevate Γ↝Γ'↝Γ'' (ECst x) = ECst x
 elevate Γ↝Γ'↝Γ'' (EAdd e e₁) = EAdd (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
-elevate Γ↝Γ'↝Γ'' (ELam e) = ELam (elevate (↝↝-extend Γ↝Γ'↝Γ'') e)
+elevate Γ↝Γ'↝Γ'' (ELam e) = ELam (elevate (extend Γ↝Γ'↝Γ'') e)
 elevate Γ↝Γ'↝Γ'' (EApp e e₁) = EApp (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
-elevate Γ↝Γ'↝Γ'' (e ,  e₁) =  ((elevate Γ↝Γ'↝Γ'' e) , (elevate Γ↝Γ'↝Γ'' e₁))
-elevate Γ↝Γ'↝Γ'' (Tl e) = Tl (elevate Γ↝Γ'↝Γ'' e)
-elevate Γ↝Γ'↝Γ'' (Tr e) = Tr (elevate Γ↝Γ'↝Γ'' e)
+elevate Γ↝Γ'↝Γ'' (EPair e e₁) = EPair (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
+elevate Γ↝Γ'↝Γ'' (EInl e) = EInl (elevate Γ↝Γ'↝Γ'' e)
+elevate Γ↝Γ'↝Γ'' (EInr e) = EInr (elevate Γ↝Γ'↝Γ'' e)
 elevate Γ↝Γ'↝Γ'' (EFst e) = EFst (elevate Γ↝Γ'↝Γ'' e)
 elevate Γ↝Γ'↝Γ'' (ESnd e) = ESnd (elevate Γ↝Γ'↝Γ'' e)
-elevate Γ↝Γ'↝Γ'' (ECase c e₁ e₂) = ECase (elevate Γ↝Γ'↝Γ'' c) (elevate (↝↝-extend Γ↝Γ'↝Γ'') e₁) (elevate (↝↝-extend Γ↝Γ'↝Γ'') e₂)
+elevate Γ↝Γ'↝Γ'' (ECase c e₁ e₂) = ECase (elevate Γ↝Γ'↝Γ'' c) (elevate (extend Γ↝Γ'↝Γ'') e₁) (elevate (extend Γ↝Γ'↝Γ'') e₂)
 
 liftE : ∀ {τ Γ Γ'} → Γ ↝ Γ' → Exp Γ τ → Exp Γ' τ
-liftE Γ↝Γ' e = elevate (↝↝-base Γ↝Γ') e
+liftE Γ↝Γ' e = elevate (refl Γ↝Γ') e
 -------------------------------------------------------------  
 --case 1. a first-order static value in a dynamic environment
-lift1 : AExp [] AInt
-lift1 = (AInt 0)
+lift1 : AExp [] SNum
+lift1 = (SCst 0)
 
-e1 : Imp [] AInt
+e1 : ATInt [] SNum
 e1 = 0
 
-lifted1 : Exp [] (typeof AInt)
-lifted1 = EInt e1
+lifted1 : Exp [] (typeof SNum)
+lifted1 = ECst e1
 --case 2. higher-order static function in a dynamic environment
 --a. a function whose input argument is of static integer
 --lift2 : AExp [] (AFun AInt AInt)
@@ -247,23 +247,23 @@ lifted1 = EInt e1
 
 --b. a function whose input argument is of dynamic integer
 --b.1. when return type is of dynamic integer
-lift3 : AExp [] (AFun (D Int) (D Int))
-lift3 = ALam (Var hd)
+lift3 : AExp [] (SFun (D Num) (D Num))
+lift3 = SLam (Var hd)
 
-e3 : Imp [] (AFun (D Int) (D Int))
+e3 : ATInt [] (SFun (D Num) (D Num))
 e3 =  λ Γ↝Γ' x → x
 
-liftede3 : Exp [] (typeof (AFun (D Int) (D Int)))
-liftede3 = ELam (e3 (↝-extend ↝-refl) (EVar hd))
+liftede3 : Exp [] (typeof (SFun (D Num) (D Num)))
+liftede3 = ELam (e3 (extend refl) (EVar hd))
 --b.2. when return type is of static integer
-lift4 : AExp [] (AFun (D Int) AInt)
-lift4 = ALam (AInt 0)
+lift4 : AExp [] (SFun (D Num) SNum)
+lift4 = SLam (SCst 0)
 
-e4 : Imp [] (AFun (D Int) AInt)
+e4 : ATInt [] (SFun (D Num) SNum)
 e4 = λ Γ↝Γ' x → 0
 
-liftede4 : Exp [] (typeof (AFun (D Int) AInt))
-liftede4 = ELam ( EInt {Int ∷ []} (e4 (↝-extend ↝-refl) (EVar hd)))
+liftede4 : Exp [] (typeof (SFun (D Num) SNum))
+liftede4 = ELam ( ECst {Num ∷ []} (e4 (extend refl) (EVar hd)))
 
 --c. a function whose input argument is of static function type
 --c.1. static function type returns a static integer
@@ -279,25 +279,25 @@ liftede4 = ELam ( EInt {Int ∷ []} (e4 (↝-extend ↝-refl) (EVar hd)))
 
 --c.2. static function type returns a dynamic integer
 --c.2.1. the input of the function type is of static integer
-lift6 : AExp []  (AFun (AFun AInt (D Int)) (D Int))
-lift6 = ALam (AApp (Var hd) (AInt 0))
+lift6 : AExp []  (SFun (SFun SNum (D Num)) (D Num))
+lift6 = SLam (SApp (Var hd) (SCst 0))
 
-e6 : Imp []  (AFun (AFun AInt (D Int)) (D Int))
-e6 = λ Γ↝Γ' x → x ↝-refl 0
+e6 : ATInt []  (SFun (SFun SNum (D Num)) (D Num))
+e6 = λ Γ↝Γ' x → x refl 0
 
-liftede6 : Exp [] (typeof ( AFun (AFun AInt (D Int)) (D Int)))
-liftede6 =  ELam ((e6 (↝-extend {τ = Fun Int Int} ↝-refl) 
-                (λ Γ↝Γ' e' → EApp (liftE Γ↝Γ' (EVar {Fun Int Int ∷ []} hd)) (EInt e'))))
+liftede6 : Exp [] (typeof ( SFun (SFun SNum (D Num)) (D Num)))
+liftede6 =  ELam ((e6 (extend {τ = Fun Num Num} refl) 
+                (λ Γ↝Γ' e' → EApp (liftE Γ↝Γ' (EVar {Fun Num Num ∷ []} hd)) (ECst e'))))
 --c.2.1. the input of the function type is of dynamic integer
-lift7 : AExp []  (AFun (AFun (D Int) (D Int)) (D Int))
-lift7 = ALam (AApp (Var hd) (DInt 0))
+lift7 : AExp []  (SFun (SFun (D Num) (D Num)) (D Num))
+lift7 = SLam (SApp (Var hd) (DCst 0))
 
-e7 : Imp []  (AFun (AFun (D Int) (D Int)) (D Int))
-e7 = λ Γ↝Γ' x → x ↝-refl (EInt 0)
+e7 : ATInt []  (SFun (SFun (D Num) (D Num)) (D Num))
+e7 = λ Γ↝Γ' x → x refl (ECst 0)
 
-liftede7 : Exp [] (typeof ( AFun (AFun (D Int) (D Int)) (D Int)))
-liftede7 =  ELam ((e7 (↝-extend {τ = Fun Int Int} ↝-refl) 
-                (λ Γ↝Γ' e' → EApp (liftE Γ↝Γ' (EVar {Fun Int Int ∷ []} hd)) e')))
+liftede7 : Exp [] (typeof ( SFun (SFun (D Num) (D Num)) (D Num)))
+liftede7 =  ELam ((e7 (extend {τ = Fun Num Num} refl) 
+                (λ Γ↝Γ' e' → EApp (liftE Γ↝Γ' (EVar {Fun Num Num ∷ []} hd)) e')))
 --c.3. the output of the function type is of higher-order static value
 --c.3.1 the return value has one static integer as input
 -- lift8 : AExp []  (AFun (D Int) (AFun AInt (D Int)))
@@ -310,21 +310,21 @@ liftede7 =  ELam ((e7 (↝-extend {τ = Fun Int Int} ↝-refl)
 -- liftede8 =  ELam (ELam (e8 (↝-extend (↝-extend ↝-refl)) (EVar (tl hd)) ↝-refl {!!}))
 
 --c.3.2 the return value has one dynamic integer as input
-lift9 : AExp []  (AFun (D Int) (AFun (D Int) (D Int)))
-lift9 = ALam (ALam (Var (tl hd)))
+lift9 : AExp []  (SFun (D Num) (SFun (D Num) (D Num)))
+lift9 = SLam (SLam (Var (tl hd)))
 
-e9 : Imp []  (AFun (D Int) (AFun (D Int) (D Int)))
+e9 : ATInt []  (SFun (D Num) (SFun (D Num) (D Num)))
 e9 = λ Γ↝Γ' x Γ'↝Γ'' y → liftE Γ'↝Γ'' x 
 
-liftede9 : Exp [] (typeof ( AFun (D Int) (AFun (D Int) (D Int))))
-liftede9 =  ELam (ELam (e9 (↝-extend (↝-extend ↝-refl)) (EVar (tl hd)) ↝-refl (EVar hd)))
+liftede9 : Exp [] (typeof ( SFun (D Num) (SFun (D Num) (D Num))))
+liftede9 =  ELam (ELam (e9 (extend (extend refl)) (EVar (tl hd)) refl (EVar hd)))
 
 --d. static pairs and sums in dynamic environment
 --d.1. identity function with  static sum as its input 
-lift10 : AExp [] (AFun ((D Int) ⊎ (D Int)) ((D Int) ⊎ (D Int)))
-lift10 = ALam (Var hd)
+lift10 : AExp [] (SFun (SSum (D Num) (D Num)) (SSum (D Num) (D Num)))
+lift10 = SLam (Var hd)
 
-e10 : Imp [] (AFun ((D Int) ⊎ (D Int)) ((D Int) ⊎ (D Int)))
+e10 : ATInt [] (SFun (SSum (D Num) (D Num)) (SSum (D Num) (D Num)))
 e10 =  λ Γ↝Γ' x → x
 
 
@@ -332,16 +332,16 @@ e10 =  λ Γ↝Γ' x → x
 -- liftede10 = ELam {!e10!}
 
 --d.2. identity function with  static pair as its input 
-lift11 : AExp [] (AFun ((D Int) • (D Int)) ((D Int) • (D Int)))
-lift11 = ALam (Var hd)
+lift11 : AExp [] (SFun (SPrd (D Num) (D Num)) (SPrd (D Num) (D Num)))
+lift11 = SLam (Var hd)
 
-e11 : Imp [] (AFun ((D Int) • (D Int)) ((D Int) • (D Int)))
+e11 : ATInt [] (SFun (SPrd (D Num) (D Num)) (SPrd (D Num) (D Num)))
 e11 =  λ Γ↝Γ' x → x
 
 
-liftede11 : Exp [] (typeof (AFun ((D Int) • (D Int)) ((D Int) • (D Int))))
-liftede11 = ELam (fst (e11 (↝-extend ↝-refl) (EFst (EVar hd) , ESnd (EVar hd))) ,
-                    snd (e11 (↝-extend ↝-refl) (EFst (EVar hd) , ESnd (EVar hd))))
+-- liftede11 : Exp [] (typeof (SFun (SPrd (D Num) (D Num)) (SPrd (D Num) (D Num))))
+-- liftede11 = ELam (fst (e11 (extend refl) (EFst (EVar hd) , ESnd (EVar hd))) ,
+--                     snd (e11 (extend refl) (EFst (EVar hd) , ESnd (EVar hd))))
 
 --Note that the above two examples in section "d" clearly shows that 
 --"static functions with inputs of static sum type are not liftable
@@ -370,43 +370,42 @@ liftede11 = ELam (fst (e11 (↝-extend ↝-refl) (EFst (EVar hd) , ESnd (EVar hd
 mutual 
   data Liftable : AType → Set where
     D : ∀ τ → Liftable (D τ)
-    AInt : Liftable AInt
-    _⊎_ : ∀ {α₁ α₂} → Liftable α₁ → Liftable α₂ → Liftable (α₁ ⊎ α₂)
-    _•_ : ∀ {α₁ α₂} → Liftable α₁ → Liftable α₂ → Liftable (α₁ • α₂)
-    AFun : ∀ {α₁ α₂} → Liftable⁻ α₁ → Liftable α₂ → Liftable (AFun α₁ α₂)
+    SCst : Liftable SNum
+    SSum : ∀ {α₁ α₂} → Liftable α₁ → Liftable α₂ → Liftable (SSum α₁ α₂)
+    SPrd : ∀ {α₁ α₂} → Liftable α₁ → Liftable α₂ → Liftable (SPrd α₁ α₂)
+    SFun : ∀ {α₁ α₂} → Liftable⁻ α₁ → Liftable α₂ → Liftable (SFun α₁ α₂)
 
   data Liftable⁻ : AType → Set where
     D : ∀ τ → Liftable⁻ (D τ)
-    -- _⊎_ : ∀ {α₁ α₂} → Liftable⁻  α₁ → Liftable⁻ α₂ → Liftable⁻ (α₁ ⊎ α₂) 
-    _•_ : ∀ {α₁ α₂} → Liftable⁻ α₁ → Liftable⁻ α₂ → Liftable⁻ (α₁ • α₂)
-    AFun : ∀ {α₁ α₂} → Liftable α₁ → Liftable⁻ α₂ → Liftable⁻ (AFun α₁ α₂)
+    SPrd : ∀ {α₁ α₂} → Liftable⁻ α₁ → Liftable⁻ α₂ → Liftable⁻ (SPrd α₁ α₂)
+    SFun : ∀ {α₁ α₂} → Liftable α₁ → Liftable⁻ α₂ → Liftable⁻ (SFun α₁ α₂)
 ----------------------------------------
 --alternative [AExp] with liftable terms
 ----------------------------------------    
 data AExp' (Δ : ACtx) : AType → Set where
   Var : ∀ {α} → α ∈ Δ → AExp' Δ α
-  AInt : ℕ → AExp' Δ AInt
-  AAdd : AExp' Δ AInt → AExp' Δ AInt → AExp' Δ AInt
-  ALam : ∀ {α₁ α₂}   → AExp' (α₁ ∷ Δ) α₂ → AExp' Δ (AFun α₁ α₂)
-  AApp : ∀ {α₁ α₂}   → AExp' Δ (AFun α₂ α₁) → AExp' Δ α₂ → AExp' Δ α₁
-  DInt : ℕ → AExp' Δ (D Int)
-  DAdd : AExp' Δ (D Int) → AExp' Δ (D Int) → AExp' Δ (D Int)
+  SCst : ℕ → AExp' Δ SNum
+  SAdd : AExp' Δ SNum → AExp' Δ SNum → AExp' Δ SNum
+  SLam : ∀ {α₁ α₂}   → AExp' (α₁ ∷ Δ) α₂ → AExp' Δ (SFun α₁ α₂)
+  SApp : ∀ {α₁ α₂}   → AExp' Δ (SFun α₂ α₁) → AExp' Δ α₂ → AExp' Δ α₁
+  DCst : ℕ → AExp' Δ (D Num)
+  DAdd : AExp' Δ (D Num) → AExp' Δ (D Num) → AExp' Δ (D Num)
   DLam : ∀ {σ₁ σ₂}   → AExp' ((D σ₁) ∷ Δ) (D σ₂) → AExp' Δ (D (Fun σ₁ σ₂))
   DApp : ∀ {α₁ α₂}   → AExp' Δ (D (Fun α₂ α₁)) → AExp' Δ (D α₂) → AExp' Δ (D α₁)
   -- Static pairs and sums
-  _,_  : ∀ {α₁ α₂} → AExp' Δ α₁ → AExp' Δ α₂ → AExp' Δ (α₁ • α₂)
-  Tl   : ∀ {α₁ α₂} → AExp' Δ α₁ → AExp' Δ (α₁ ⊎ α₂)
-  Tr   : ∀ {α₁ α₂} → AExp' Δ α₂ → AExp' Δ (α₁ ⊎ α₂)
-  Fst  : ∀ {α₁ α₂} → AExp' Δ (α₁ • α₂) → AExp' Δ α₁
-  Snd  : ∀ {α₁ α₂} → AExp' Δ (α₁ • α₂) → AExp' Δ α₂
-  Case : ∀ {α₁ α₂ α₃} → AExp' Δ (α₁ ⊎ α₂) → AExp' (α₁ ∷ Δ) α₃ → AExp' (α₂ ∷ Δ) α₃ → AExp' Δ α₃
+  SPair  : ∀ {α₁ α₂} → AExp' Δ α₁ → AExp' Δ α₂ → AExp' Δ (SPrd α₁ α₂)
+  SInl   : ∀ {α₁ α₂} → AExp' Δ α₁ → AExp' Δ (SSum α₁ α₂)
+  SInr   : ∀ {α₁ α₂} → AExp' Δ α₂ → AExp' Δ (SSum α₁ α₂)
+  SFst  : ∀ {α₁ α₂} → AExp' Δ (SPrd α₁ α₂) → AExp' Δ α₁
+  SSnd  : ∀ {α₁ α₂} → AExp' Δ (SPrd α₁ α₂) → AExp' Δ α₂
+  SCase : ∀ {α₁ α₂ α₃} → AExp' Δ (SSum α₁ α₂) → AExp' (α₁ ∷ Δ) α₃ → AExp' (α₂ ∷ Δ) α₃ → AExp' Δ α₃
   -- Dynamic pairs and sums
-  _ḋ_  : ∀ {σ₁ σ₂} → AExp' Δ (D σ₁) → AExp' Δ (D σ₂) → AExp' Δ (D (σ₁ • σ₂))
-  DTl   : ∀ {σ₁ σ₂} → AExp' Δ (D σ₁) → AExp' Δ (D (σ₁ ⊎ σ₂))
-  DTr   : ∀ {σ₁ σ₂} → AExp' Δ (D σ₂) → AExp' Δ (D (σ₁ ⊎ σ₂))
-  DFst  : ∀ {σ₁ σ₂} → AExp' Δ (D (σ₁ • σ₂)) → AExp' Δ (D σ₁)
-  DSnd  : ∀ {σ₁ σ₂} → AExp' Δ (D (σ₁ • σ₂)) → AExp' Δ (D σ₂)
-  DCase : ∀ {σ₁ σ₂ σ₃} → AExp' Δ (D (σ₁ ⊎ σ₂)) → AExp' ((D σ₁) ∷ Δ) (D σ₃) → AExp' ((D σ₂) ∷ Δ) (D σ₃) → AExp' Δ (D σ₃) 
+  DPair  : ∀ {σ₁ σ₂} → AExp' Δ (D σ₁) → AExp' Δ (D σ₂) → AExp' Δ (D (Prd σ₁ σ₂))
+  DInl   : ∀ {σ₁ σ₂} → AExp' Δ (D σ₁) → AExp' Δ (D (Sum σ₁ σ₂))
+  DInr   : ∀ {σ₁ σ₂} → AExp' Δ (D σ₂) → AExp' Δ (D (Sum σ₁ σ₂))
+  DFst  : ∀ {σ₁ σ₂} → AExp' Δ (D (Prd σ₁ σ₂)) → AExp' Δ (D σ₁)
+  DSnd  : ∀ {σ₁ σ₂} → AExp' Δ (D (Prd σ₁ σ₂)) → AExp' Δ (D σ₂)
+  DCase : ∀ {σ₁ σ₂ σ₃} → AExp' Δ (D (Sum σ₁ σ₂)) → AExp' ((D σ₁) ∷ Δ) (D σ₃) → AExp' ((D σ₂) ∷ Δ) (D σ₃) → AExp' Δ (D σ₃) 
   -- Liftable static terms
   ↑     : ∀ {α} → Liftable α → AExp' Δ α  → AExp' Δ (D (typeof α))
 
@@ -414,13 +413,13 @@ data AExp' (Δ : ACtx) : AType → Set where
 
 
 
-lift : ∀ {Γ Γ'} α → Γ ↝ Γ' → Imp Γ α → Imp Γ' α 
-lift AInt p v = v
-lift (AFun x x₁) Γ↝Γ' v = λ Γ'↝Γ'' → v (↝-trans Γ↝Γ' Γ'↝Γ'')
-lift (D x₁) Γ↝Γ' v = elevate (↝↝-base Γ↝Γ') v
-lift (α₁ • α₂) Γ↝Γ' (v₁ , v₂) = (lift α₁ Γ↝Γ' v₁) , (lift α₂ Γ↝Γ' v₂)
-lift (α₁ ⊎ α₂) Γ↝Γ' (tl v) = tl (lift α₁ Γ↝Γ' v)
-lift (α₁ ⊎ α₂) Γ↝Γ' (tr v) = tr (lift α₂ Γ↝Γ' v)
+lift : ∀ {Γ Γ'} α → Γ ↝ Γ' → ATInt Γ α → ATInt Γ' α 
+lift SNum p v = v
+lift (SFun x x₁) Γ↝Γ' v = λ Γ'↝Γ'' → v (↝-trans Γ↝Γ' Γ'↝Γ'')
+lift (D x₁) Γ↝Γ' v = elevate (refl Γ↝Γ') v
+lift (SPrd α₁ α₂) Γ↝Γ' (v₁ , v₂) = (lift α₁ Γ↝Γ' v₁) , (lift α₂ Γ↝Γ' v₂)
+lift (SSum α₁ α₂) Γ↝Γ' (tl v) = tl (lift α₁ Γ↝Γ' v)
+lift (SSum α₁ α₂) Γ↝Γ' (tr v) = tr (lift α₂ Γ↝Γ' v)
 
 
 
@@ -430,9 +429,9 @@ module SimpleAEnv where
   -- A little weaker, but much simpler
   data AEnv (Γ : Ctx) : ACtx → Set where
     [] : AEnv Γ []
-    cons : ∀ {Δ} {α : AType} → Imp Γ α → AEnv Γ Δ → AEnv Γ (α ∷ Δ)
+    cons : ∀ {Δ} {α : AType} → ATInt Γ α → AEnv Γ Δ → AEnv Γ (α ∷ Δ)
   
-  lookup : ∀ {α Δ Γ} → AEnv Γ Δ → α ∈ Δ → Imp Γ α
+  lookup : ∀ {α Δ Γ} → AEnv Γ Δ → α ∈ Δ → ATInt Γ α
   lookup [] ()
   lookup {α} (cons x aenv) hd = x
   lookup {α} (cons x aenv) (tl {.α} {y} id) = lookup aenv id
@@ -442,32 +441,32 @@ module SimpleAEnv where
   liftEnv Γ↝Γ' (cons {α = α} x env) = cons {α = α} (lift α Γ↝Γ' x) (liftEnv Γ↝Γ' env)
   
   consD : ∀ {Γ Δ} σ → AEnv Γ Δ → AEnv (σ ∷ Γ) (D σ ∷ Δ)
-  consD σ env = (cons {α = D σ} (EVar hd) (liftEnv (↝-extend {τ = σ} ↝-refl) env))
+  consD σ env = (cons {α = D σ} (EVar hd) (liftEnv (extend {τ = σ} refl) env))
 
 
 
   
-  pe : ∀ {α Δ Γ} → AExp Δ α → AEnv Γ Δ → Imp Γ α
+  pe : ∀ {α Δ Γ} → AExp Δ α → AEnv Γ Δ → ATInt Γ α
   pe (Var x) env = lookup env x
-  pe (AInt x) env = x
-  pe (AAdd e e₁) env = pe e env + pe e₁ env
-  pe (ALam {α} e) env = λ Γ↝Γ' → λ y → pe e (cons {α = α} y (liftEnv Γ↝Γ' env))
-  pe (AApp e e₁) env = pe e env ↝-refl (pe e₁ env)
-  pe (DInt x) env = EInt x
+  pe (SCst x) env = x
+  pe (SAdd e e₁) env = pe e env + pe e₁ env
+  pe (SLam {α} e) env = λ Γ↝Γ' → λ y → pe e (cons {α = α} y (liftEnv Γ↝Γ' env))
+  pe (SApp e e₁) env = pe e env refl (pe e₁ env)
+  pe (DCst x) env = ECst x
   pe (DAdd e e₁) env = EAdd (pe e env) (pe e₁ env)
   pe (DLam {σ} e) env = ELam (pe e (consD σ env))
   pe (DApp e e₁) env = EApp (pe e env) (pe e₁ env)
-  pe {Γ = Γ} (e , e₁) env = pe {Γ = Γ} e env , pe {Γ = Γ} e₁ env
-  pe {α = α₁ ⊎ α₂} {Γ = Γ} (Tl e) env = tl (pe {α = α₁} {Γ = Γ} e env)
-  pe {α = α₁ ⊎ α₂} {Γ = Γ} (Tr e) env = tr (pe {α = α₂} {Γ = Γ} e env)
-  pe {Γ = Γ} (Fst e) env = fst (pe {Γ = Γ} e env)
-  pe {Γ = Γ} (Snd e) env = snd (pe {Γ = Γ} e env)
-  pe {Γ = Γ} (Case e e₁ e₂) env  with pe {Γ = Γ} e env
-  pe {Γ = Γ} (Case {α₁ = α} e e₁ e₂) env | tl y = (λ Γ↝Γ' → λ y → pe e₁ (cons {α = α} y (liftEnv Γ↝Γ' env))) ↝-refl y
-  pe {Γ = Γ} (Case {α₂ = α} e e₁ e₂) env | tr y = (λ Γ↝Γ' → λ y → pe e₂ (cons {α = α} y (liftEnv Γ↝Γ' env))) ↝-refl y
-  pe (e ḋ e₁) env = pe e env , pe e₁ env
-  pe (DTl e) env = Tl (pe e env)
-  pe (DTr e) env = Tr (pe e env)
+  pe {Γ = Γ} (SPair e e₁) env = pe {Γ = Γ} e env , pe {Γ = Γ} e₁ env
+  pe {α = SSum α₁ α₂} {Γ = Γ} (SInl e) env = tl (pe {α = α₁} {Γ = Γ} e env)
+  pe {α = SSum α₁ α₂} {Γ = Γ} (SInr e) env = tr (pe {α = α₂} {Γ = Γ} e env)
+  pe {Γ = Γ} (SFst e) env = fst (pe {Γ = Γ} e env)
+  pe {Γ = Γ} (SSnd e) env = snd (pe {Γ = Γ} e env)
+  pe {Γ = Γ} (SCase e e₁ e₂) env  with pe {Γ = Γ} e env
+  pe {Γ = Γ} (SCase {α₁ = α} e e₁ e₂) env | tl y = (λ Γ↝Γ' → λ y → pe e₁ (cons {α = α} y (liftEnv Γ↝Γ' env))) refl y
+  pe {Γ = Γ} (SCase {α₂ = α} e e₁ e₂) env | tr y = (λ Γ↝Γ' → λ y → pe e₂ (cons {α = α} y (liftEnv Γ↝Γ' env))) refl y
+  pe (DPair e e₁) env = EPair (pe e env) (pe e₁ env)
+  pe (DInl e) env = EInl (pe e env)
+  pe (DInr e) env = EInr (pe e env)
   pe (DFst e) env = EFst (pe e env)
   pe (DSnd e) env = ESnd (pe e env)
   pe (DCase {σ₁} {σ₂} e e₁ e₂) env = ECase (pe e env) (pe e₁ (consD σ₁ env)) (pe e₂ (consD σ₂ env))
@@ -479,45 +478,45 @@ module SimpleAEnv where
 -- Helper for the evaluation of liftable terms
 ----------------------------------------------
   mutual 
-    lift' : ∀ {Γ α} → Liftable α → Imp Γ α → (Exp Γ (typeof α))
+    lift' : ∀ {Γ α} → Liftable α → ATInt Γ α → (Exp Γ (typeof α))
     lift' (D τ) v = v
-    lift' AInt v = EInt v
-    lift' (ty ⊎ ty₁) (tl a) = Tl (lift' ty a)
-    lift' (ty ⊎ ty₁) (tr b) = Tr (lift' ty₁ b)
-    lift' (ty • ty₁) (ffst , ssnd) = lift' ty ffst , lift' ty₁ ssnd
-    lift' {Γ} (AFun {α₁} ty₁ ty₂) v = ELam
-                                        ((λ x → lift' ty₂ (v (↝-extend {τ = typeof α₁} ↝-refl) x))
+    lift' SCst v = ECst v
+    lift' (SSum ty ty₁) (tl a) = EInl (lift' ty a)
+    lift' (SSum ty ty₁) (tr b) = EInr (lift' ty₁ b)
+    lift' (SPrd ty ty₁) (ffst , ssnd) = EPair (lift' ty ffst) (lift' ty₁ ssnd)
+    lift' {Γ} (SFun {α₁} ty₁ ty₂) v = ELam
+                                        ((λ x → lift' ty₂ (v (extend {τ = typeof α₁} refl) x))
                                          (embed ty₁ (EVar {Γ = typeof α₁ ∷ Γ} hd)))
 
-    embed : ∀ {Γ α} → Liftable⁻ α → Exp Γ (typeof α) → (Imp Γ α)
+    embed : ∀ {Γ α} → Liftable⁻ α → Exp Γ (typeof α) → (ATInt Γ α)
     embed (D τ) e = e
-    embed (ty • ty₁) e = embed ty (EFst e) , embed ty₁ (ESnd e)
-    embed {Γ} (AFun {α} ty₁ ty₂) e = 
+    embed (SPrd ty ty₁) e = embed ty (EFst e) , embed ty₁ (ESnd e)
+    embed {Γ} (SFun {α} ty₁ ty₂) e = 
       λ Γ↝Γ' v₁ → embed ty₂ (EApp (liftE Γ↝Γ' e) (lift' ty₁ v₁))
 --------------------
 -- Partial Evaluator
 --------------------
-  pe' : ∀ {α Δ Γ} → AExp' Δ α → AEnv Γ Δ → Imp Γ α
+  pe' : ∀ {α Δ Γ} → AExp' Δ α → AEnv Γ Δ → ATInt Γ α
   pe' (Var x) env = lookup env x
-  pe' (AInt x) env = x
-  pe' (AAdd e e₁) env = pe' e env + pe' e₁ env
-  pe' (ALam {α} e) env = λ Γ↝Γ' → λ y → pe' e (cons {α = α} y (liftEnv Γ↝Γ' env))
-  pe' (AApp e e₁) env = pe' e env ↝-refl (pe' e₁ env)
-  pe' (DInt x) env = EInt x
+  pe' (SCst x) env = x
+  pe' (SAdd e e₁) env = pe' e env + pe' e₁ env
+  pe' (SLam {α} e) env = λ Γ↝Γ' → λ y → pe' e (cons {α = α} y (liftEnv Γ↝Γ' env))
+  pe' (SApp e e₁) env = pe' e env refl (pe' e₁ env)
+  pe' (DCst x) env = ECst x
   pe' (DAdd e e₁) env = EAdd (pe' e env) (pe' e₁ env)
   pe' (DLam {σ} e) env = ELam (pe' e (consD σ env))
   pe' (DApp e e₁) env = EApp (pe' e env) (pe' e₁ env)
-  pe' {Γ = Γ} (e , e₁) env = pe' {Γ = Γ} e env , pe' {Γ = Γ} e₁ env
-  pe' {α = α₁ ⊎ α₂} {Γ = Γ} (Tl e) env = tl (pe' {α = α₁} {Γ = Γ} e env)
-  pe' {α = α₁ ⊎ α₂} {Γ = Γ} (Tr e) env = tr (pe' {α = α₂} {Γ = Γ} e env)
-  pe' {Γ = Γ} (Fst e) env = fst (pe' {Γ = Γ} e env)
-  pe' {Γ = Γ} (Snd e) env = snd (pe' {Γ = Γ} e env)
-  pe' {Γ = Γ} (Case e e₁ e₂) env with pe' {Γ = Γ} e env
-  pe' {Γ = Γ} (Case {α₁ = α} e e₁ e₂) env | tl y = (λ Γ↝Γ' → λ y → pe' e₁ (cons {α = α} y (liftEnv Γ↝Γ' env))) ↝-refl y
-  pe' {Γ = Γ} (Case {α₂ = α} e e₁ e₂) env | tr y = (λ Γ↝Γ' → λ y → pe' e₂ (cons {α = α} y (liftEnv Γ↝Γ' env))) ↝-refl y
-  pe' (e ḋ e₁) env = pe' e env , pe' e₁ env
-  pe' (DTl e) env = Tl (pe' e env)
-  pe' (DTr e) env = Tr (pe' e env)
+  pe' {Γ = Γ} (SPair e e₁) env = pe' {Γ = Γ} e env , pe' {Γ = Γ} e₁ env
+  pe' {α = SSum α₁ α₂} {Γ = Γ} (SInl e) env = tl (pe' {α = α₁} {Γ = Γ} e env)
+  pe' {α = SSum α₁ α₂} {Γ = Γ} (SInr e) env = tr (pe' {α = α₂} {Γ = Γ} e env)
+  pe' {Γ = Γ} (SFst e) env = fst (pe' {Γ = Γ} e env)
+  pe' {Γ = Γ} (SSnd e) env = snd (pe' {Γ = Γ} e env)
+  pe' {Γ = Γ} (SCase e e₁ e₂) env with pe' {Γ = Γ} e env
+  pe' {Γ = Γ} (SCase {α₁ = α} e e₁ e₂) env | tl y = (λ Γ↝Γ' → λ y → pe' e₁ (cons {α = α} y (liftEnv Γ↝Γ' env))) refl y
+  pe' {Γ = Γ} (SCase {α₂ = α} e e₁ e₂) env | tr y = (λ Γ↝Γ' → λ y → pe' e₂ (cons {α = α} y (liftEnv Γ↝Γ' env))) refl y
+  pe' (DPair e e₁) env = EPair (pe' e env) (pe' e₁ env)
+  pe' (DInl e) env = EInl (pe' e env)
+  pe' (DInr e) env = EInr (pe' e env)
   pe' (DFst e) env = EFst (pe' e env)
   pe' (DSnd e) env = ESnd (pe' e env)
   pe' (DCase {σ₁} {σ₂} e e₁ e₂) env = ECase (pe' e env) (pe' e₁ (consD σ₁ env)) (pe' e₂ (consD σ₂ env))
