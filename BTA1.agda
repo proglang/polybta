@@ -1,4 +1,4 @@
---partial evaluation of two-level typed lambda calculus
+-- partial evaluation of two-level typed lambda calculus
 module BTA1 where
 
 open import Data.Nat
