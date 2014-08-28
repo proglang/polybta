@@ -14,7 +14,7 @@ open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality
 open import Data.Empty
 
-open import BTA-Lib 
+open import Lib 
 
 
 data Type : Set where
