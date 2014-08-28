@@ -101,6 +101,11 @@ module ListExtension where
   lem-↝-refl-id ↝-refl = refl
   lem-↝-refl-id (↝-extend Γ↝Γ') = cong ↝-extend (lem-↝-refl-id Γ↝Γ')
 
+  _⊕_ : ∀ {A : Set}{Γ Γ' Γ'' : List A} → 
+        Γ ↝ Γ' → Γ' ↝ Γ'' → Γ ↝ Γ''
+  _⊕_ Γ↝Γ' ↝-refl = Γ↝Γ'                                 
+  _⊕_ Γ↝Γ' (↝-extend Γ'↝Γ'') = ↝-extend (Γ↝Γ' ⊕ Γ'↝Γ'')
+
   -- Extending a list in the middle: 
   data _↝_↝_ {A : Set} : List A → List A → List A → Set where
     -- First prepend the extension list to the common suffix
