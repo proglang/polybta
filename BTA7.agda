@@ -164,39 +164,14 @@ data AEnv (Γ : Ctx) : ACtx → Set where
 
 
 elevate-var : ∀ {Γ Γ'} {τ : Type} → Γ ↝ Γ' → τ ∈ Γ → τ ∈ Γ'
-elevate-var ↝-refl τ∈Γ = τ∈Γ
-elevate-var (↝-extend Γ↝Γ') τ∈Γ = tl (elevate-var Γ↝Γ' τ∈Γ)
-
---elevate-var refl x = x
---elevate-var (extend Γ↝Γ') x = tl (elevate-var Γ↝Γ' x)
-
-
--- elevate-var2 : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → τ ∈ Γ → τ ∈ Γ'' 
--- elevate-var2 (refl x) x₁ = elevate-var x x₁
--- elevate-var2 (extend Γ↝Γ'↝Γ'') hd = hd
--- elevate-var2 (extend Γ↝Γ'↝Γ'') (tl x) = tl (elevate-var2 Γ↝Γ'↝Γ'' x)
-
+elevate-var refl τ∈Γ = τ∈Γ
+elevate-var (extend Γ↝Γ') τ∈Γ = tl (elevate-var Γ↝Γ' τ∈Γ)
 
 elevate-var2 : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → τ ∈ Γ → τ ∈ Γ'' 
-elevate-var2 (↝↝-base x) x₁ = elevate-var x x₁
-elevate-var2 (↝↝-extend Γ↝Γ'↝Γ'') hd = hd
-elevate-var2 (↝↝-extend Γ↝Γ'↝Γ'') (tl x) = tl (elevate-var2 Γ↝Γ'↝Γ'' x)
+elevate-var2 (refl x) x₁ = elevate-var x x₁
+elevate-var2 (extend Γ↝Γ'↝Γ'') hd = hd
+elevate-var2 (extend Γ↝Γ'↝Γ'') (tl x) = tl (elevate-var2 Γ↝Γ'↝Γ'' x)
 
--- elevate : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → Exp Γ τ → Exp Γ'' τ
--- elevate Γ↝Γ'↝Γ'' (EVar x) = EVar (elevate-var2 Γ↝Γ'↝Γ'' x)
--- elevate Γ↝Γ'↝Γ'' (ECst x) = ECst x
--- elevate Γ↝Γ'↝Γ'' (ESuc e) = ESuc (elevate Γ↝Γ'↝Γ'' e)
--- elevate Γ↝Γ'↝Γ'' (EIt e e₀ e₁) = EIt (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₀) (elevate Γ↝Γ'↝Γ'' e₁)
--- elevate Γ↝Γ'↝Γ'' (ERec v u n) = ERec (elevate Γ↝Γ'↝Γ'' v) (elevate Γ↝Γ'↝Γ'' u) (elevate Γ↝Γ'↝Γ'' n)
--- elevate Γ↝Γ'↝Γ'' (EAdd e e₁) = EAdd (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
--- elevate Γ↝Γ'↝Γ'' (ELam e) = ELam (elevate (extend Γ↝Γ'↝Γ'') e)
--- elevate Γ↝Γ'↝Γ'' (EApp e e₁) = EApp (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
--- elevate Γ↝Γ'↝Γ'' (EPair e e₁) =  EPair (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
--- elevate Γ↝Γ'↝Γ'' (EInl e) = EInl (elevate Γ↝Γ'↝Γ'' e)
--- elevate Γ↝Γ'↝Γ'' (EInr e) = EInr (elevate Γ↝Γ'↝Γ'' e)
--- elevate Γ↝Γ'↝Γ'' (EFst e) = EFst (elevate Γ↝Γ'↝Γ'' e)
--- elevate Γ↝Γ'↝Γ'' (ESnd e) = ESnd (elevate Γ↝Γ'↝Γ'' e)
--- elevate Γ↝Γ'↝Γ'' (ECase c e₁ e₂) = ECase (elevate Γ↝Γ'↝Γ'' c) (elevate (extend Γ↝Γ'↝Γ'') e₁) (elevate (extend Γ↝Γ'↝Γ'') e₂)
 
 elevate : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → Exp Γ τ → Exp Γ'' τ
 elevate Γ↝Γ'↝Γ'' (EVar x) = EVar (elevate-var2 Γ↝Γ'↝Γ'' x)
@@ -205,37 +180,21 @@ elevate Γ↝Γ'↝Γ'' (ESuc e) = ESuc (elevate Γ↝Γ'↝Γ'' e)
 elevate Γ↝Γ'↝Γ'' (EIt e e₀ e₁) = EIt (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₀) (elevate Γ↝Γ'↝Γ'' e₁)
 elevate Γ↝Γ'↝Γ'' (ERec v u n) = ERec (elevate Γ↝Γ'↝Γ'' v) (elevate Γ↝Γ'↝Γ'' u) (elevate Γ↝Γ'↝Γ'' n)
 elevate Γ↝Γ'↝Γ'' (EAdd e e₁) = EAdd (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
-elevate Γ↝Γ'↝Γ'' (ELam e) = ELam (elevate (↝↝-extend Γ↝Γ'↝Γ'') e)
+elevate Γ↝Γ'↝Γ'' (ELam e) = ELam (elevate (extend Γ↝Γ'↝Γ'') e)
 elevate Γ↝Γ'↝Γ'' (EApp e e₁) = EApp (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
 elevate Γ↝Γ'↝Γ'' (EPair e e₁) =  EPair (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
 elevate Γ↝Γ'↝Γ'' (EInl e) = EInl (elevate Γ↝Γ'↝Γ'' e)
 elevate Γ↝Γ'↝Γ'' (EInr e) = EInr (elevate Γ↝Γ'↝Γ'' e)
 elevate Γ↝Γ'↝Γ'' (EFst e) = EFst (elevate Γ↝Γ'↝Γ'' e)
 elevate Γ↝Γ'↝Γ'' (ESnd e) = ESnd (elevate Γ↝Γ'↝Γ'' e)
-elevate Γ↝Γ'↝Γ'' (ECase c e₁ e₂) = ECase (elevate Γ↝Γ'↝Γ'' c) (elevate (↝↝-extend Γ↝Γ'↝Γ'') e₁) (elevate (↝↝-extend Γ↝Γ'↝Γ'') e₂)
-
--- TODO: ↑ is an unfortunate choice for shifting, as it is used for
--- reflect in the TDPE literature.
--- exp↑ : ∀ {τ τ' Γ} → Exp Γ τ' → Exp (τ ∷ Γ) τ'
--- exp↑ e = elevate (refl (extend refl)) e
+elevate Γ↝Γ'↝Γ'' (ECase c e₁ e₂) = ECase (elevate Γ↝Γ'↝Γ'' c) (elevate (extend Γ↝Γ'↝Γ'') e₁) (elevate (extend Γ↝Γ'↝Γ'') e₂)
 
 exp↑ : ∀ {τ τ' Γ} → Exp Γ τ' → Exp (τ ∷ Γ) τ'
-exp↑ e = elevate (↝↝-base (↝-extend ↝-refl)) e
-
--- int↑ : ∀ { α Γ Γ'} → Γ ↝ Γ' → ATInt Γ α → ATInt Γ' α
--- int↑ refl v = v
--- int↑ {D τ} (extend Γ↝Γ') e = exp↑ (int↑ Γ↝Γ' e)
--- int↑ {SNum} _ v = v
--- int↑ {SFun α α₁} Γ↝Γ' f =
---   λ Γ'↝Γ'' x → f (Γ↝Γ' ⊕ Γ'↝Γ'') x
--- int↑ {SPrd α α₁} Γ↝Γ' (proj₁ , proj₂) = int↑ Γ↝Γ' proj₁ , int↑ Γ↝Γ' proj₂
--- int↑ {SSum α α₁} Γ↝Γ' (inj₁ x) = inj₁ (int↑ Γ↝Γ' x)
--- int↑ {SSum α α₁} Γ↝Γ' (inj₂ y) = inj₂ (int↑ Γ↝Γ' y)
-
+exp↑ e = elevate (refl (extend refl)) e
 
 int↑ : ∀ { α Γ Γ'} → Γ ↝ Γ' → ATInt Γ α → ATInt Γ' α
-int↑ ↝-refl v = v
-int↑ {D τ} (↝-extend Γ↝Γ') e = exp↑ (int↑ Γ↝Γ' e)
+int↑ refl v = v
+int↑ {D τ} (extend Γ↝Γ') e = exp↑ (int↑ Γ↝Γ' e)
 int↑ {SNum} _ v = v
 int↑ {SFun α α₁} Γ↝Γ' f =
   λ Γ'↝Γ'' x → f (Γ↝Γ' ⊕ Γ'↝Γ'') x
@@ -248,7 +207,7 @@ env↑ _ [] = []
 env↑ Γ↝Γ' (x ∷ ρ) = int↑ Γ↝Γ' x ∷ env↑ Γ↝Γ' ρ
 
 addFresh : ∀ {τ Γ Δ} → AEnv Γ Δ → AEnv (τ ∷ Γ) (D τ ∷ Δ)
-addFresh ρ = EVar hd ∷ env↑ (↝-extend ↝-refl) ρ
+addFresh ρ = EVar hd ∷ env↑ (extend refl) ρ
 
 lookup : ∀ {Γ Δ α} → α ∈ Δ → AEnv Γ Δ → ATInt Γ α
 lookup hd (v ∷ _) = v 
@@ -264,7 +223,7 @@ mutual
   lift (SPrd ty ty₁) (v1 , v2) = EPair (lift ty v1) (lift ty₁ v2)
   lift (SFun {α₁} ty₁ ty₂) f =
     ELam let x = (embed ty₁ (EVar hd)) in
-         lift ty₂ (f (↝-extend ↝-refl) x)
+         lift ty₂ (f (extend refl) x)
 
   embed : ∀ {Γ α} →
     Liftable⁻ α → Exp Γ (erase α) → (ATInt Γ α)
@@ -277,17 +236,17 @@ pe : ∀ { Γ Δ α } →
          AExp Δ α → AEnv Γ Δ → ATInt Γ α
 pe (Var x) ρ       = lookup x ρ
 pe (DLam e) ρ      = ELam (pe e (addFresh ρ))
-pe (SApp f e) ρ    = (pe f ρ) ↝-refl (pe e ρ)
+pe (SApp f e) ρ    = (pe f ρ) refl (pe e ρ)
 pe (SLam {α} e) ρ  = λ Γ↝Γ' x → pe e (x ∷ env↑ Γ↝Γ' ρ)
 pe (DApp f e) ρ    = EApp (pe f ρ) (pe e ρ)
 pe (SCst x) _      = x
 pe (DCst x) _      = ECst x
 pe (SSuc e) ρ      = suc (pe e ρ)
 pe (DSuc e) ρ      = ESuc (pe e ρ)
-pe (SIt e e₀ e₁) ρ = natit (pe e ρ) (pe e₀ ρ) (pe e₁ ρ ↝-refl)
+pe (SIt e e₀ e₁) ρ = natit (pe e ρ) (pe e₀ ρ) (pe e₁ ρ refl)
 pe (DIt e e₀ e₁) ρ = EIt (pe e ρ) (pe e₀ ρ) (pe e₁ ρ)
 --partial evaluation of static and dynamic recursors
-pe {Γ} (SRec v u n) ρ = natrec (pe n ρ) (pe v ρ) (λ n₁ → pe u ρ {Γ} ↝-refl n₁ {Γ} ↝-refl)
+pe {Γ} (SRec v u n) ρ = natrec (pe n ρ) (pe v ρ) (λ n₁ → pe u ρ {Γ} refl n₁ {Γ} refl)
 pe (DRec v u n) ρ = ERec (pe v ρ) (pe u ρ) (pe n ρ)
 pe (SAdd e f) ρ    = (pe e ρ) + (pe f ρ) 
 pe (DAdd e f) ρ    = EAdd (pe e ρ) (pe f ρ) 
@@ -474,8 +433,6 @@ Sack'-m m = pe (SApp (SLam (SApp Sack' (SCst m))) Diter) []
 ---------------------------------------------------
 open import Data.Empty
 
--- a decidable Liftable may help in constructing the proofs... Lu
--- doesn't know how yet (Reflection? smart constructors? both?)
 lift-dec : (α : AType) → Dec (Liftable α)
 lift-dec⁻ : (α : AType) → Dec (Liftable⁻ α)
 
@@ -563,7 +520,7 @@ e1-lifted = ilift (infer-lift e1)  -- liftable inferred
 e1-lifted' : AExp [] _
 e1-lifted' = ilift (infer-lift (SLam {α₁ = D Num} (Var hd)))
 
--- TODO: It does not work as conventient as expected. Try to avoid the
+
 -- duplication of α (first parameter)
 e2 : AExp [] (SFun (SFun (D Num) (D Num)) (SFun (D Num) (D (Prd Num Num))))
 e2 = (SLam 
@@ -610,10 +567,10 @@ residualize (Lift lftbl e) = residualize e
 
 data _⊢_↝_ :
   ∀ {Γ Γ'} → Γ ↝ Γ' → Env Γ → Env Γ' → Set where
-  refl : ∀ {Γ} {ρ : Env Γ} → ↝-refl ⊢ ρ ↝ ρ
+  refl : ∀ {Γ} {ρ : Env Γ} → refl ⊢ ρ ↝ ρ
   extend : ∀ {τ Γ Γ' ρ ρ'} → {Γ↝Γ' : Γ ↝ Γ'} →
              (v : TInt τ) → Γ↝Γ' ⊢ ρ ↝ ρ' →
-             ↝-extend Γ↝Γ' ⊢ ρ ↝ (v ∷ ρ')
+             extend Γ↝Γ' ⊢ ρ ↝ (v ∷ ρ')
 _⊕ρ_ : ∀ {Γ Γ' Γ''} {Γ↝Γ' : Γ ↝ Γ'} {Γ'↝Γ'' : Γ' ↝ Γ''}
   {ρ ρ' ρ''} → 
   Γ↝Γ' ⊢ ρ ↝ ρ' → Γ'↝Γ'' ⊢ ρ' ↝ ρ'' →
@@ -663,10 +620,10 @@ data Env-Equiv {Γ' : _} (ρ : Env Γ') :
 data _⊢_↝_↝_⊣ : ∀ { Γ Γ' Γ''} → Γ ↝ Γ' ↝ Γ'' → Env Γ → Env Γ' → Env Γ'' → Set where
   refl : ∀ {Γ Γ''} {Γ↝Γ'' : Γ ↝ Γ''} { ρ ρ'' } →
          Γ↝Γ'' ⊢ ρ ↝ ρ'' →
-         ↝↝-base Γ↝Γ'' ⊢ ρ ↝ [] ↝ ρ'' ⊣
+         refl Γ↝Γ'' ⊢ ρ ↝ [] ↝ ρ'' ⊣
   extend : ∀ {Γ Γ' Γ'' τ} {Γ↝Γ'↝Γ'' : Γ ↝ Γ' ↝ Γ''} { ρ ρ' ρ'' } →
            Γ↝Γ'↝Γ'' ⊢ ρ ↝ ρ' ↝ ρ'' ⊣ →
-           (v : TInt τ) → ↝↝-extend Γ↝Γ'↝Γ'' ⊢ (v ∷ ρ) ↝ (v ∷ ρ') ↝ (v ∷ ρ'') ⊣
+           (v : TInt τ) → extend Γ↝Γ'↝Γ'' ⊢ (v ∷ ρ) ↝ (v ∷ ρ') ↝ (v ∷ ρ'') ⊣
 
 -- the following lemmas are sinj₂ong versions of the shifting
 -- functions, proving that consistent variable renaming preserves
@@ -708,7 +665,7 @@ elevate-≡ {Γ↝Γ'↝Γ'' = Γ↝Γ'↝Γ''}
               {ρ = ρ}
               {ρ'' = ρ''}
               ρ↝ρ' (ELam e) = ext elevate-≡-body
-   where elevate-≡-body : ∀ x → ev e (x ∷ ρ) ≡ ev (elevate (↝↝-extend Γ↝Γ'↝Γ'') e) (x ∷ ρ'')
+   where elevate-≡-body : ∀ x → ev e (x ∷ ρ) ≡ ev (elevate (extend Γ↝Γ'↝Γ'') e) (x ∷ ρ'')
          elevate-≡-body x = elevate-≡ (extend ρ↝ρ' x) e
 elevate-≡ ρ↝ρ' (EApp e e₁) with elevate-≡ ρ↝ρ' e | elevate-≡ ρ↝ρ' e₁
 ... | IA1 | IA2  = cong₂ (λ f₁ x → f₁ x) IA1 IA2
@@ -765,11 +722,11 @@ env↑-equiv-extend :
   ∀ {σ Γ' Δ} (ρ' : Env Γ') → let Γ = Lib.map erase Δ in
     {ρ : Env Γ} {aρ : AEnv Γ' Δ} →
     Env-Equiv ρ' aρ ρ → (x : TInt σ) →
-    Env-Equiv (x ∷ ρ') (env↑ (↝-extend ↝-refl) aρ) ρ
+    Env-Equiv (x ∷ ρ') (env↑ (extend refl) aρ) ρ
 env↑-equiv-extend _ [] x = []
 env↑-equiv-extend ρ' (cons {α} eqρ va v x) x₁ =
   cons (env↑-equiv-extend ρ' eqρ x₁)
-       (int↑ (↝-extend ↝-refl) va) v (int↑-equiv va v (extend x₁ (refl)) x)
+       (int↑ (extend refl) va) v (int↑-equiv va v (extend x₁ (refl)) x)
 
 env↑-equiv :
   ∀ {Γ' Γ'' Δ} → let Γ = Lib.map erase Δ in
@@ -801,7 +758,7 @@ mutual
   lift-correct (SFun x lft) env av v eq =  
     ext (λ x₁ →
            lift-correct lft (x₁ ∷ env)
-           (av (↝-extend ↝-refl) (embed x (EVar hd))) (v x₁) (eq (extend x₁ (refl)) (embed-correct x (x₁ ∷ env) (EVar hd) x₁ refl)))
+           (av (extend refl) (embed x (EVar hd))) (v x₁) (eq (extend x₁ (refl)) (embed-correct x (x₁ ∷ env) (EVar hd) x₁ refl)))
 
   embed-correct : ∀ {Γ α} (lft : Liftable⁻ α) (env : Env Γ) →  (e : Exp Γ (erase α)) → (v : TInt (erase α)) → 
                   ev e env  ≡ v → Equiv env (embed lft e) v
@@ -838,7 +795,7 @@ natit-correct :
                  Equiv ρ₁' xₐ x →
                  Equiv ρ₁' (pe e₁ ρ' Γ↝Γ' xₐ) (ev (residualize e₁) ρ'' x)) →
           Equiv env'
-          (natit n (pe e₀ ρ') (pe e₁ ρ' ↝-refl))
+          (natit n (pe e₀ ρ') (pe e₁ ρ' refl))
           (natit n (ev (residualize e₀) ρ'') (ev (residualize e₁) ρ''))
 natit-correct zero Γ' ρ' ρ'' α e₀ e₁ env' IA₀ IA₁ = IA₀
 natit-correct (suc n) Γ' ρ' ρ'' α e₀ e₁ env' IA₀ IA₁ 
@@ -862,9 +819,9 @@ natrec-correct :
                  {xₐ : ATInt Γ₁' α}
                  {x : TInt (erase α)} →
                  Equiv ρ₁' xₐ x →
-                 Equiv ρ₁' (pe e₁ ρ' Γ↝Γ' m₁ ↝-refl xₐ) (ev (residualize e₁) ρ'' m₂  x)) →
+                 Equiv ρ₁' (pe e₁ ρ' Γ↝Γ' m₁ refl xₐ) (ev (residualize e₁) ρ'' m₂  x)) →
           Equiv env'
-          (natrec n (pe e₀ ρ') (λ n₁ → pe {Γ'} e₁ ρ' {Γ'} ↝-refl n₁ {Γ'} ↝-refl))
+          (natrec n (pe e₀ ρ') (λ n₁ → pe {Γ'} e₁ ρ' {Γ'} refl n₁ {Γ'} refl))
           (natrec n (ev (residualize e₀) ρ'') (ev (residualize e₁) ρ''))
 natrec-correct zero Γ' ρ' ρ'' α e₀ e₁ env' IA₀ IA₁ =  IA₀
 natrec-correct (suc n) Γ' ρ' ρ'' α e₀ e₁ env' IA₀ IA₁ 
@@ -891,7 +848,7 @@ pe-correct {Δ = Δ} {Γ' = Γ'} (SRec {α} v u n) env' {ρ'} {ρ''} eqenv
 ... | IN | IV | IU rewrite IN = natrec-correct (ev (residualize n) ρ'') Γ' ρ' ρ'' α v u env' IV 
     (λ {m₁} {m₂} m₁≡m₂ {Γ₁'} {ρ₁'} {Γ↝Γ'} Γ↝Γ'⊢env'↝ρ₁' → 
      IU {Γ₁'} {ρ₁'} {Γ↝Γ'} Γ↝Γ'⊢env'↝ρ₁' {m₁} {m₂} m₁≡m₂ {Γ₁'} {ρ₁'}
-       {↝-refl} refl)
+       {refl} refl)
      
 
 
