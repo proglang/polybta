@@ -1,3 +1,4 @@
+--extended with terms of liftable types
 module DB2PHOAS-lifting where
 open import Data.Nat hiding  (_<_;_⊔_;_*_;equal)
 open import Data.Bool hiding (_∨_) 
@@ -8,7 +9,7 @@ open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality 
 open import Data.Empty
 open import Data.Product
-open import Lib hiding (_∧_)
+open import BTA-Lib hiding (_∧_)
 open import Data.Sum
 
 ----------------------
@@ -280,123 +281,7 @@ proj {D (Fun τ₁ τ₂)} (DLam ae) env = DLam (λ v → proj ae (cons v env))
 proj (DApp ae ae₁) env = DApp (proj ae env) (proj ae₁ env)
 proj (↓ l e) env = ↓ l (proj e env)
 
----------------------------------
---a generalized version of [proj]
----------------------------------
-----------------------------
---alternative environment
-----------------------------
-data Env' : (AType → Set) → ACtx → Set₁ where
-  []   : ∀ var → Env' var []
-  cons : ∀ {Δ} {α : AType} {var : AType → Set} → var α → Env' var Δ → Env' var (α ∷ Δ)
 
------------------------
---some auxiliary lemmas
------------------------
-lookupenv' : ∀ {A : AType} {Δ : ACtx} {var : AType → Set} → A ∈ Δ → Env' var Δ → var A
-lookupenv' hd (cons x l) = x
-lookupenv' (tl id) (cons x l) = lookupenv' id l 
-
-
-
-proj' : ∀ {A : AType} {Δ : ACtx} {var : AType → Set}  → AExp Δ A → Env' var Δ  → aexp var A
-proj' {A} {Δ} (Var x) env = Var (lookupenv' x env)
-proj' {AInt} (AInt x) env = SCst x
-proj' (AAdd ae ae₁) env = SAdd (proj' ae env) (proj' ae₁ env)
-proj' {AFun α₁ α₂}  (ALam ae) env = SLam (λ x → proj' ae (cons x env))
-proj' (AApp ae ae₁) env = SApp (proj' ae env) (proj' ae₁ env)
-proj' (DInt x) env = DCst x
-proj' (DAdd ae ae₁) env = DAdd (proj' ae env) (proj' ae₁ env)
-proj' {D (Fun τ₁ τ₂)} (DLam ae) env = DLam (λ v → proj' ae (cons v env))
-proj' (DApp ae ae₁) env = DApp (proj' ae env) (proj' ae₁ env)
-proj' (↓ l e) env = ↓ l (proj' e env)
-
------------------------------
---from [PHOAS] to [De Bruijn]
---[proj']
------------------------------
-----------
---analysis
-----------
---Since free variable in [PHOAS] stores its value within itself as follows,
---[Var 5] where [5] is the value stored within this free variable
---we donot need to consider "environment" when specifying partial evaluator.
---We need,however,consider it when tranlating from [PHOAS] to [De Bruijn].
-
--- ifeq' : ∀ (A B : Type) → Bool
--- ifeq' Int Int = true
--- ifeq' Int (Fun b b₁) = false
--- ifeq' (Fun a a₁) Int = false
--- ifeq' (Fun a a₁) (Fun b b₁) = ifeq' a b ∧ ifeq' a₁ b₁
-
--- ifeq : ∀ (A B : AType) → Bool
--- ifeq AInt AInt = true
--- ifeq AInt (AFun b b₁) = false
--- ifeq AInt (D x) = false
--- ifeq (AFun a a₁) AInt = false
--- ifeq (AFun a a₁) (AFun b b₁) = ifeq a b ∧ ifeq a₁ b₁
--- ifeq (AFun a a₁) (D x) = false
--- ifeq (D x) AInt = false
--- ifeq (D x) (AFun b b₁) = false
--- ifeq (D x) (D x₁) = ifeq' x x₁
-
--- ifeqAInt : ∀ {var : Type → Set} {A : AType} (a b : ATInt var A) → Σ (ATInt var A) \ x → Bool
--- ifeqAInt {var} {AInt} zero zero = zero , true
--- ifeqAInt {var} {AInt} zero (suc b) = zero , false
--- ifeqAInt {var} {AInt} (suc a) zero = (suc a) , false
--- ifeqAInt {var} {AInt} (suc a) (suc b) = zero , (proj₂ (ifeqAInt {var} {AInt} a b))
--- ifeqAInt {var} {AFun A A₁} a b = {!!} , {!!}
--- ifeqAInt {var} {D x} a b = {!!}
-
--- ∧-eq : ∀ {a b : Bool} → a ∧ b ≡ true → (a ≡ true) × (b ≡ true)
--- ∧-eq {true} {true} eq = refl , refl
--- ∧-eq {true} {false} ()
--- ∧-eq {false} ()
-
--- eqAB' : ∀ {A B : Type} → (ifeq' A B ≡ true) → A ≡ B
--- eqAB' {Int} {Int} b = refl
--- eqAB' {Int} {Fun B B₁} ()
--- eqAB' {Fun A A₁} {Int} ()
--- eqAB' {Fun A A₁} {Fun B B₁} b 
---   rewrite eqAB' {A} {B} (proj₁ (∧-eq {ifeq' A B} {ifeq' A₁ B₁} b)) | eqAB' {A₁} {B₁} (proj₂ (∧-eq {ifeq' A B} {ifeq' A₁ B₁} b))
---     = refl
-
--- eqAB : ∀ {A B : AType} → (ifeq A B ≡ true)  → A ≡ B
--- eqAB {AInt} {AInt} b = refl
--- eqAB {AInt} {AFun B B₁} ()
--- eqAB {AInt} {D x} ()
--- eqAB {AFun A A₁} {AInt} ()
--- eqAB {AFun A A₁} {AFun B B₁} b 
---   rewrite eqAB {A} {B} (proj₁ (∧-eq {ifeq A B} {ifeq A₁ B₁} b)) | eqAB {A₁} {B₁} (proj₂ (∧-eq {ifeq A B} {ifeq A₁ B₁} b)) 
---     = refl
--- eqAB {AFun A A₁} {D x} ()
--- eqAB {D x} {AInt} ()
--- eqAB {D x} {AFun B B₁} ()
--- eqAB {D x} {D x₁} b rewrite eqAB' {x} {x₁} b = refl
-
-
-
--- lookupenv'' : ∀ {A : AType} {Δ : ACtx} {var : Type → Set} → ATInt var A → Env var Δ → A ∈ Δ
--- lookupenv'' {A} {.[]} {var} e ([]) = {!!}
--- lookupenv'' {A} e (cons {α = α} x l) = {!!} 
-
--- proj'' : ∀ {A : AType} {Δ : ACtx} {var : Type → Set} → aexp (ATInt var) A → Env var Δ → AExp Δ A
--- proj'' (Var x) env = Var (lookupenv'' x env)
--- proj'' (SCst x) env = AInt x
--- proj'' (SAdd e e₁) env = AAdd (proj'' e env) (proj'' e₁ env)
--- proj'' {AFun A B} {var = var} (SLam x) env = ALam {!λ v → proj'' (x v) (cons v env)!}
--- proj'' (SApp e e₁) env = AApp (proj'' e env) (proj'' e₁ env)
--- proj'' (DCst x) env = DInt x
--- proj'' (DAdd e e₁) env = DAdd (proj'' e env) (proj'' e₁ env)
--- proj'' (DLam x) env = DLam {!λ v → proj'' (x v) (cons v env)!}
--- proj'' (DApp e e₁) env = DApp (proj'' e env) (proj'' e₁ env)
-
---------------------------------------------------------------------------------------
---partial evaluation is indifferent to the translation from [AExp] to [aexp] by [proj]
---------------------------------------------------------------------------------------
------------------------------
---partial evaluator of [AExp]
------------------------------
 ----------------------------------
 --auxiliary functions for shifting
 ----------------------------------
@@ -780,7 +665,6 @@ Similar : ∀ {A} {var₁ : Type → Set} {var₂ : Type → Set}  → (Γ : Lis
 Similar {AInt} Γ e e' = e ≡ e'
 Similar {AFun A A₁} {var₁} {var₂} Γ e e' = {Γ' : List (Σ[ A ∈ Type ] ((var₁ A) × (var₂ A)))} {v : Imp (en₁2Ctx (Γ2en₁ {var₁} {var₂} Γ')) A} 
                                            {v' : ATInt var₂ A} →
-                                           --(et : en₁2Ctx (Γ2en₁ Γ) ↝ en₁2Ctx (Γ2en₁ Γ')) →
                                            (et : Γ ↝ Γ') →
                                            Similar Γ' v v' → Similar Γ' (e (etG2S et) v) (e' v')
 Similar {D x} Γ e e' = similar-Exp Γ (Exp2exp (Γ2en₁ Γ) e) e'
@@ -965,12 +849,9 @@ lift-similar-env : ∀ {Δ var₁ var₂} {Γ : List (Σ[ A ∈ Type ] ((var₁ 
                     similar-env {var₁} {var₂} {Γ'} {Δ} (liftEnv (etG2S et) aen) en 
 lift-similar-env [] = []
 lift-similar-env {A ∷ Δ} {var₁} {var₂} {Γ} {Γ'} {et} {cons e aen} {cons e' en}  (scons x sim) 
-   --= {!lift-similar {A} {var₁} {var₂} {Γ} {Γ'} {et} {e} {e'} x  !}
-   --= {!lift-similar-env {Δ} {var₁} {var₂} {Γ} {Γ'} {et} {aen} {en} sim!}
     = scons (lift-similar {A} {var₁} {var₂} {Γ} {Γ'} {et} {e} {e'} x) 
             (lift-similar-env {Δ} {var₁} {var₂} {Γ} {Γ'} {et} {aen} {en} sim) 
-      -- scons (lift-similar {A} {var₁} {var₂} {Γ} {Γ'} {et} {e} {e'} x) 
-      --       (lift-similar-env {Δ} {var₁} {var₂} {Γ} {Γ'} {et} {aen} {en} sim)
+ 
 
 Exp2expEVar≡ : ∀ {A} {var₁ : Type → Set} {var₂ : Type → Set} {v₁ : var₁ A} {v₂ : var₂ A} 
                  {Γ : List (Σ[ A ∈ Type ] ((var₁ A) × (var₂ A)))} {Γ' : List (Σ[ A ∈ Type ] ((var₁ A) × (var₂ A)))}
@@ -1030,98 +911,7 @@ mutual
                             {(typeof α₁ , v₁ , v₂) ∷ Γ} {EVar hd} {EVar v₂} (this {v₁} {v₂}))))
        where this : ∀ {v₁} {v₂} → similar-Exp ((typeof α₁ , v₁ , v₂) ∷ Γ) (Exp2exp (Γ2en₁ ((typeof α₁ , v₁ , v₂) ∷ Γ)) (EVar hd)) (EVar v₂)
              this {v₁} {v₂} = similar-EVar hd 
--- Embed-similar-Func : ∀ {α₁ α₂} {var₁ : Type → Set} {var₂ : Type → Set} {l : liftable1 α₁} {l₁ : liftable1 α₂} 
---                         {v₁ : var₁ (Fun (typeof α₁) (typeof α₂))} {v₂ : var₂ (Fun (typeof α₁) (typeof α₂))}
---                         {Γ : List (Σ[ A ∈ Type ] ((var₁ A) × (var₂ A)))} {Γ' : List (Σ[ A ∈ Type ] ((var₁ A) × (var₂ A)))}
---                         {v : Imp (en₁2Ctx (Γ2en₁ Γ')) α₁} {v' : ATInt var₂ α₁}
---                         {et : ((Fun (typeof α₁) (typeof α₂) , v₁ , v₂) ∷ Γ) ↝ Γ'} →
---                         Similar Γ' v v' →
---                         Similar Γ'
---                         (Embed l₁ (EApp (EVar (elevate-var (etG2S et) hd)) (Lift' l v)))
---                         (embed l₁ (EApp (EVar v₂) (lift' l v'))) 
--- Embed-similar-Func {α₁} {(D x)} {var₁} {var₂} {l} {base} {v₁} {v₂} {Γ} {Γ'} {v} {v'} {et} simvv' 
---       = {!this!}
---          where this : similar-Exp Γ'
---                       (Exp2exp (Γ2en₁ Γ')
---                       (EApp (EVar (elevate-var (etG2S et) hd)) (Lift' l v)))
---                       (EApp (EVar v₂) (lift' l v'))
---                this 
---                     rewrite Exp2expEApp≡ {typeof α₁} {x} {var₁} {Γ2en₁ Γ'} 
---                                     {EVar {τ = Fun (typeof α₁) x} 
---                             (elevate-var  {(Fun (typeof α₁) x) ∷ (en₁2Ctx (Γ2en₁ Γ))} {en₁2Ctx (Γ2en₁ Γ')} {Fun (typeof α₁) x} 
---                             (etG2S et) hd)} {Lift' l v}   |
---                         Exp2expEVar≡ {Fun (typeof α₁) x} {var₁} {var₂} {v₁} {v₂} {Γ} {Γ'} {et}
---                 = {!similar-EApp (similar-EVar (A∈Γ↝Γ' et)) 
---                                (Lift-similar {α₁} {var₁} {var₂} {Γ'} {l} {v} {v'} simvv')!}
- 
-                      
--- Embed-similar-Func {α₁} {(AFun α₂ α₃)} {var₁} {var₂} {l} {Func l₁ l₂} simvv' = {!!}
-  
--- mutual
---     Embed-similar : ∀ {α : AType} {var₁ : Type → Set} {var₂ : Type → Set} 
---                   {Γ : List (Σ[ A ∈ Type ] ((var₁ A) × (var₂ A)))} {l : liftable1 α} 
---                   {v₁ : var₁ (typeof α)} {v₂ : var₂ (typeof α)} →
---                   Similar ((typeof α , v₁ , v₂) ∷ Γ) (Embed l (EVar hd)) (embed l (EVar v₂))
---     Embed-similar {(D x)} {var₁} {var₂} {Γ} {base} {v₁} {v₂} = similar-EVar hd
---     Embed-similar {AFun α₁ α₂} {var₁} {var₂} {Γ} {Func l l₁} {v₁} {v₂} 
---       = λ {Γ'} {v} {v'} et simvv' →
---             this {Γ'} {α₁} {α₂} {v} {v'} {v₁} {v₂} {et} {l} {l₁} {simvv'}
---          where this : ∀ {Γ'} {α₁} {α₂} {v : Imp (en₁2Ctx (Γ2en₁ Γ')) α₁} {v' : ATInt var₂ α₁}
---                         {v₁ : var₁ (Fun (typeof α₁) (typeof α₂))}
---                         {v₂ : var₂ (Fun (typeof α₁) (typeof α₂))} 
---                         {et : ((Fun (typeof α₁) (typeof α₂) , v₁ , v₂) ∷ Γ) ↝ Γ'} 
---                         {l : liftable1 α₁} {l₁ : liftable1 α₂} {simvv' : Similar Γ' v v'} → 
---                        Similar Γ'
---                       (Embed l₁ (EApp (EVar (elevate-var (etG2S et) hd)) (Lift' l v)))
---                       (embed l₁ (EApp (EVar v₂) (lift' l v')))
---                this {Γ'} {α₁} {(D x)} {v} {v'} {v₁} {v₂} {et} {l} {base} {simvv'}
---                     rewrite Exp2expEApp≡ {typeof α₁} {x} {var₁} {Γ2en₁ Γ'} 
---                                 {EVar {τ = Fun (typeof α₁) x} 
---                              (elevate-var  {(Fun (typeof α₁) x) ∷ (en₁2Ctx (Γ2en₁ Γ))} {en₁2Ctx (Γ2en₁ Γ')} {Fun (typeof α₁) x} 
---                              (etG2S et) hd)} {Lift' l v}   |
---                          Exp2expEVar≡ {Fun (typeof α₁) x} {var₁} {var₂} {v₁} {v₂} {Γ} {Γ'} {et} 
---                   = similar-EApp (similar-EVar (A∈Γ↝Γ' et)) (Lift-similar {α₁} {var₁} {var₂} {Γ'} {l} {v} {v'} simvv')
---                this {Γ'} {α₁} {(AFun α₂ α₃)} {v} {v'} {v₁} {v₂} {et} {l} {Func l₁ l₂} {simvv'}  
---                   = {!λ {Γ''} {v₃} {v''} et₁ simv₃v'' →
---                      this {Γ''} {α₂} {α₃} 
---                           {v₃} {v''}
---                           {} {} {}
---                           {l₁} {l₂}
---                           {simv₃v''}!} 
---   -- Embed-similar {.(AFun α₁ AInt)} {var₁} {var₂} {Γ} {Func {α₁} {AInt} l ()}
---   -- Embed-similar {.(AFun α₁ (D x))} {var₁} {var₂} {Γ} {Func {α₁} {D x} l base} {v₁} {v₂}  
---   --   = λ {Γ'} {v} {v'} et simvv' → this {Γ'} {v} {v'} {et} {simvv'}
---   --     where this : ∀ {Γ' v v' et} {simvv' : Similar Γ' v v'} → similar-Exp Γ'
---   --                                  (Exp2exp (Γ2en₁ Γ')
---   --                                   (EApp (EVar (elevate-var (etG2S et) hd)) (Lift' l v)))
---   --                                   (EApp (EVar v₂) (lift' l v'))
---   --           this {Γ'} {v} {v'} {et} {simvv'}
---   --               rewrite Exp2expEApp≡ {typeof α₁} {x} {var₁} {Γ2en₁ Γ'} 
---   --                                   {EVar {τ = Fun (typeof α₁) x} 
---   --                           (elevate-var  {(Fun (typeof α₁) x) ∷ (en₁2Ctx (Γ2en₁ Γ))} {en₁2Ctx (Γ2en₁ Γ')} {Fun (typeof α₁) x} 
---   --                           (etG2S et) hd)} {Lift' l v}   |
---   --                       Exp2expEVar≡ {Fun (typeof α₁) x} {var₁} {var₂} {v₁} {v₂} {Γ} {Γ'} {et}
---   --               = similar-EApp (similar-EVar (A∈Γ↝Γ' et)) 
---   --                              (Lift-similar {α₁} {var₁} {var₂} {Γ'} {l} {v} {v'} simvv')
---   -- Embed-similar {(AFun α₁ (AFun α₂ (D x)))} {var₁} {var₂} {Γ} {Func {.α₁} {.(AFun α₂ (D x))} l (Func l₁ base)} 
---   --               = {!can be proven,similar to above!}
---   -- Embed-similar {(AFun α₁ (AFun α₂ (AFun α₃ α₄)))} {var₁} {var₂} {Γ} {Func {.α₁} {.(AFun α₂ (AFun α₃ α₄))} l (Func l₁ (Func l₂ l₃))} 
---   --               = {!!}
 
-
---     Lift-similar : ∀ {A} {var₁ : Type → Set} {var₂ : Type → Set} {Γ : List (Σ[ A ∈ Type ] ((var₁ A) × (var₂ A)))} {l : liftable1 A} 
---                  {v : Imp (en₁2Ctx (Γ2en₁ Γ)) A} {v' : ATInt var₂ A} →
---                  Similar Γ v v' →
---                  similar-Exp Γ (Exp2exp (Γ2en₁ Γ) (Lift' l v)) (lift' l v')
---     Lift-similar {(D x)} {var₁} {var₂} {Γ} {base} sim = sim
---     Lift-similar {(AFun α₁ α₂)} {var₁} {var₂} {Γ} {Func l l₁} {v} {v'} sim 
---       --rewrite Exp2expELam≡ {typeof α₁} {typeof α₂} {var₁} {Γ2en₁ Γ} {Lift' l₁ (v (↝-extend ↝-refl) (Embed l (EVar hd)))}
---       = {!similar-ELam (λ v₁ v₂ →
---                         Lift-similar {l = l₁}
---                         (sim {(typeof α₁ , v₁ , v₂) ∷ Γ} {Embed l (EVar hd)}
---                          {embed l (EVar v₂)} (↝-extend ↝-refl)
---                          (Embed-similar {α₁} {var₁} {var₂} {Γ} {l} {v₁} {v₂})))
---         !}
 
 proj-correct : ∀ {Δ A var₁ var₂} {Γ :  List (Σ[ A ∈ Type ] ((var₁ A) × (var₂ A)))} {e : AExp Δ A} {aen : AEnv (en₁2Ctx (Γ2en₁ Γ)) Δ} 
                  {en : Env var₂ Δ} →
