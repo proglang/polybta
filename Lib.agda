@@ -1,5 +1,5 @@
 --library for [BTA5.agda], [BTA6.agda], [DB2PHOAS1.agda], [DB2PHOAS2.agda], and [PHOAS2DB.agda]
-module BTA-Lib where
+module Lib where
 open import Data.List
 open import Relation.Binary.PropositionalEquality
 
