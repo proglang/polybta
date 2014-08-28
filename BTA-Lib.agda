@@ -1,4 +1,5 @@
-module Lib where
+--library for [BTA5.agda] and [BTA6.agda]
+module BTA-Lib where
 open import Data.List
 open import Relation.Binary.PropositionalEquality
 
