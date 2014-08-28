@@ -113,7 +113,7 @@ lem-force-bt {D} {Ann S y'} () D=bt
 lem-force-bt {D} {Ann D y'} bt≼at D=bt = refl
 
 
--- Low-level types; types wihtout binding information
+-- Low-level types
 data Type : Set where
   TInt : Type
   TFun : Type → Type → Type

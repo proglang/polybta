@@ -1,4 +1,7 @@
-module BTA3 where
+--simplify the environment [AEnv] defined in [BTA1.agda] 
+--by combining constructors [envD] and [envS]
+
+module BTA2 where
 
 open import Data.Nat
 open import Data.Bool
@@ -18,77 +21,31 @@ _≼_ : BT → BT → Bool
 _≼_ D S  = false
 _≼_ _ _  = true
 
--- note that the above function can also be specified as follows,
--- _≼_ : BT → BT → Bool 
--- D ≼ S = false
--- _ ≼ _ = true
-
--- note that the function [≼] specifies that a "static",S, can be treated
--- as a "dynamic",D, and not the other way round
--- since in Agda, pattern matching is conducted in a sequencial fashion,
--- the above specification makes sure that it returns [false] when the 
--- first argument is [D] and the second [S] and returns [true] in all
--- the other three cases.
-
-
-
-
--- BEGIN: stuff that is also in the standard library
 
 -- Standard propositional equality, see also Relation.Binary.PropositionalEquality
 data _==_ {A : Set} (x : A) : A → Set where
   refl : x == x
--- [_==_] defines an equality proposition
--- it takes two identical elements of one type as arguments and gives one 
--- evidence,[refl],for the proposition
+
 
 -- subst lemma
 subst : {A B : Set}{x x' : A} {C : A → B} → x == x' → C x == C x'
 subst{A}{B}{x}{.x} refl = refl
 
--- or being defined in the following manner...
--- my_subst : {A B : Set}{x x' : A}{C : A → B} →  x == x' → C x == C x'
--- my_subst refl = refl
-
--- the above function further helps to construct evidence for equality 
--- proposition
--- it says that if two elements are identical then two new elements obtained
--- by applying the former to a function  should also be identical
 
 
 
 record True : Set where
 data False : Set where
 
--- note that the above is regarding two simple proposition [True] and [False]
--- regarding [True],
--- it is defined as empty record with a single element of type [True],[record{}]
--- the trick here is that the type checker knows this and fills in any implicit
--- arguments of [True] with this element
--- another way of defining [True] as follows,
--- record True : Set where
--- trivial : True
--- trivial = _
-
--- regarding [False],
--- it is defined as a proposition without any evidence corresponding well to
--- what a [False] proposition really means
 
 isTrue : Bool → Set
 isTrue true  = True
 isTrue false = False
--- note the isTrue b,given b as boolean, is the type of proof that b is equal to
--- true since if it is the case, [isTrue b] returns type [True] where its
--- evidence is automatically filled in by the type checker while if it is not
--- the case there is no way to supply for the evidence due to the way how 
--- [false] is constructed 
 
 
--- END standard library
-
-----------------------
+-----------
 -- Sublists
-----------------------
+-----------
 data _cx-≤_ {A : Set} : List A → List A → Set where
   cxle-eq : (l : List A) → l cx-≤ l
   cxle-lt : ∀ {l₁ l₂} x → l₁ cx-≤ l₂ → l₁ cx-≤ (x ∷ l₂)
@@ -114,30 +71,16 @@ lem-⊆-trans e (refl-⊆ {l}) = e
 lem-⊆-trans (refl-⊆ {l}) (step-⊆ x l₁ l₂ e) = step-⊆ x l₁ l₂ e
 lem-⊆-trans (step-⊆ x l₁ l₂ e) (step-⊆ x' l₁' l₂' e') = step-⊆ x' l₁' l₂' (lem-⊆-trans (step-⊆ x l₁ l₂ e) e')
 
--- data _≤1_ {A : Set} : List A → List A → Set where
---   cxle1-eq : (l : List A) → l ≤1 l
---   cxle1-lt : ∀ x (l : List A) → l ≤1 (x ∷ l)
-
- 
--- data _?∷_ {A : Set} (x : A): List A → Set where
---   yes∷ : (l : List A) → x ?∷ (x ∷ l)
---   no∷ : (l : List A) → x ?∷ l
-
--- getList : ∀ {A} {x : A} {l : List A} → x ?∷ l → List A
--- getList {x = x} (yes∷ l) = x ∷ l
--- getList {_} {_} {l} (no∷ .l) = l
-
+---------------
 -- end sublists
+---------------
 
 -- some lemmas about BT subsumption
 lem-bt≼S : {bt : BT} → isTrue (bt ≼ S) → bt == S
 lem-bt≼S {S} bt≼S = refl
 lem-bt≼S {D} ()
 
--- which can also be defined as follows,
--- my_lem-bt≼S : {bt : BT} → isTrue (bt ≼ S) → bt == S
--- my_lem-bt≼S {S} _ = refl
--- my_lem-bt≼S {D} ()
+
 
 lem-D≼bt : {bt : BT} → isTrue (D ≼ bt) → bt == D
 lem-D≼bt {S} ()
@@ -162,55 +105,25 @@ ATInt bt = Ann bt SInt
 ATFun  : BT → AType → AType → AType
 ATFun  bt at1 at2 = Ann bt (SFun at1 at2)
 
--- note that the above function labels a ground type with annotations [S] or
--- [D],sort of a labelling function
 
 -- projection: get the BT from a type
 btof : AType → BT
 btof (Ann bt _) = bt
 
--- a related function which takes an annotated type as argument and returns
--- the annotation of that type
-
--- "constraint on types: functions have to be at least as dynamic as their component" should be corrected as follows,
--- arguments of function should be as dynamic as the function
-
+-- constraint on types: well-formedness
 data wft : AType → Set where
   wf-int  : ∀ {bt} → wft (Ann bt SInt)
   wf-fun  : ∀ {bt at1 at2} → wft at1 → wft at2
           → isTrue (bt ≼ btof at1) → isTrue (bt ≼ btof at2) → wft (Ann bt (SFun at1 at2))
 
--- the above proposition specifies a set of well-formed [AType]s,
--- any annotated [SInt]s are well-formed, wft (Ann bt SInt) forall bt ∈ BT
--- in case of functional type with annotation, the following two criteria have
--- to be satisfied to be a well form,
--- a. each of its arguments is well-formed
--- b. the annotation of the function and the annotations of its arguments must
---    satisfy [_≼_] relation
---    for instance, the functional type defined above is well-formed while
---    the following is not,
---    Ann D (
---            SFun (Ann S SInt) (Ann D SInt)
---          )
---    in conclusion,for functional type with annotation to be well-formed,
---    each of its arguments annotations has to be [D] when that of the function
---    is [D] while there is no constraint upon the annotations of its arguments
---    when that of the function is [S]
 
 lem-force-bt : ∀ {bt at} → isTrue (bt ≼ btof at) → D == bt → D == btof at
 lem-force-bt {S} bt≼at ()
 lem-force-bt {D} {Ann S y'} () D=bt
 lem-force-bt {D} {Ann D y'} bt≼at D=bt = refl
 
--- note the above function takes an element[bt] of type [BT] and a type with 
--- annotation,
--- if both 
--- a. the type is at least as dynamic as [bt]
--- b. [bt == D]
--- then we know that the annotation of the type must be [D] as well
--- and the function in that case returns evidence for that
 
--- Low-level types; types wihtout binding information
+-- Low-level types
 data Type : Set where
   TInt : Type
   TFun : Type → Type → Type
@@ -224,19 +137,7 @@ mutual
   strip' SInt = TInt
   strip' (SFun y y') = TFun (strip y) (strip y')
 
--- note that the above function [strip] converts a type with annotation [AType]
--- to a low-level type [Type],
--- for instance,
--- strip (Ann D SInt)
--- = strip' SInt
--- = TInt
--- strip (Ann S
---         SFun (Ann S SInt) (Ann D SInt)
---       )
--- = strip' (SFun (Ann S SInt) (Ann D SInt))
--- = TFun (strip (Ann S SInt)) (strip (Ann D SInt))
--- = TFun (strip' SInt) (strip' SInt) 
--- = TFun TInt TInt^
+
 
 -- More general purpose definitions (should also be in standard library)
 -- list membership
@@ -245,25 +146,20 @@ data _∈_ {A : Set} : A → List A → Set where
   hd : ∀ {x xs} → x ∈ (x ∷ xs)
   tl : ∀ {x y xs} → x ∈ xs → x ∈ (y ∷ xs)
 
--- note the above proposition gives us two constructors for getting
--- evidences for an element being a member of one list 
-
--- end general purpose definitions 
 
 -- Typing context
 Ctx = List Type
 
---data Exp' (Γ Γ' : Ctx) : Type → Set where
---  EVar' : 
+
 
 -- Typed expression
 data Exp (Γ : Ctx) : Type → Set where
-  -- [EVar] corresponds to the bounded variables in [AExp]
   EVar : ∀ {τ} → τ ∈ Γ → Exp Γ τ
   EInt : ℕ → Exp Γ TInt
   EFun : ∀ {τ₁ τ₂} → Exp (τ₂ ∷ Γ) τ₁ → Exp Γ (TFun τ₂ τ₁)
   EApp : ∀ {τ₁ τ₂} → Exp Γ (TFun τ₂ τ₁) → Exp Γ τ₂ → Exp Γ τ₁
--- one additional term,
+
+
 count_tl : ∀ {A Γ Γ'} {τ : A} → τ ∈ Γ → Γ cx-≤ Γ' → τ ∈ Γ'
 count_tl  x (cxle-eq Γ) = x
 count_tl x  (cxle-lt T e) = tl (count_tl x e)
@@ -357,10 +253,7 @@ lem-IsDynamic-by-wf : ∀ α → isTrue (D ≼ btof α) → IsDynamic α
 lem-IsDynamic-by-wf (Ann S σ) ()
 lem-IsDynamic-by-wf (Ann D σ) _ = is-dyn σ 
 
--- -- TODO: Do we need additional assurance in the type signature (or as
--- -- an aux. lemma) that Γ is the residue of Δ?
--- -- Note: It seems that in the light of [AEnv] defined above,  
--- --       there is no correspondence bewteen Γ and Δ
+
 pe : ∀ {Δ Γ α} → AEnv Γ Δ → AExp Δ α → impTA Γ α
 pe env (AVar idx) = lookup env idx
 pe env (AInt S i) = i
