@@ -1,4 +1,8 @@
-module BTA7 where
+--extended with
+--a)pairs and sums
+--b)liftable types [Liftable]
+--c)lifting constructor [↑] for terms of liftable types
+module BTA5 where
 
 ----------------------------------------------
 -- Preliminaries: Imports and List-utilities
@@ -15,27 +19,12 @@ open import Data.Empty
 
 open import Lib 
 
-
-
----------------------------------------
--- Start of the development:
----------------------------------------
-
--- Intro/Objective:
--------------------
--- The following development defines a (verified) specializer/partial
--- evaluator for a simply typed lambda calculus embedded in Agda using
--- deBruijn indices.
-
--- The residual language.
--------------------------
-
 -- The residual language is a standard simply typed λ-calculus.  The
 -- types are integers,functions,pairs,and sums.
 data Type : Set where
   Int : Type
   Fun : Type → Type → Type
-    --pair type on the residual type level
+  --pair type on the residual type level
   _•_ : Type  → Type  → Type   
   --sum type on the residual type level
   _⊎_ : Type → Type → Type
@@ -43,13 +32,6 @@ data Type : Set where
 Ctx = List Type
 
 
--- The type Exp describes the typed residual expressions. Variables
--- are represented by deBruijn indices that form references into the
--- typing context. The constructors and typing constraints are
--- standard.
-
--- TODO: citations for ``as usual'' and ``standard''
--- what?
 data Exp (Γ : Ctx) : Type → Set where
   EVar : ∀ {τ} → τ ∈ Γ → Exp Γ τ
   EInt : ℕ → Exp Γ Int
@@ -64,9 +46,7 @@ data Exp (Γ : Ctx) : Type → Set where
   ECase : ∀ {τ τ' τ''} → Exp Γ (τ ⊎ τ') → Exp (τ ∷ Γ) τ'' → Exp (τ' ∷ Γ) τ'' → Exp Γ τ''
 
 
--- The standard functional semantics of the residual expressions. 
--- TODO: citations for ``as usual'' and ``standard''
--- what?
+
 module Exp-Eval where
   -- interpretation of Exp types
   EImp : Type → Set
@@ -108,13 +88,7 @@ module Exp-Eval where
   ev (ECase e e₁ e₂) env | tr c  = (λ x → ev e₂ (x ∷ env)) c
 
 
--- The binding-time-annotated language. 
----------------------------------------
 
--- The type of a term determines the term's binding time. The type
--- constructors with an A-prefix denote statically bound integers and
--- functions. Terms with dynamic binding time have a `D' type. The `D'
--- type constructor simply wraps up a residual type.
 data AType : Set where
     AInt  : AType
     AFun  : AType → AType → AType
@@ -128,7 +102,7 @@ ACtx = List AType
 
 
 
--- The mapping from annotated types to residual types is straightforward.
+
 typeof : AType → Type
 typeof AInt = Int
 typeof (AFun α₁ α₂) = Fun (typeof α₁) (typeof α₂) 
@@ -139,11 +113,7 @@ typeof (α₁ ⊎ α₂) = typeof α₁ ⊎ typeof α₂
 
 
 
-           
--- The typed annotated terms: The binding times of variables is
--- determined by the corresponding type-binding in the context. In the
--- other cases, the A- and D-prefixes on term constructors inidicate
--- the corresponding binding times for the resulting terms.
+
 data AExp (Δ : ACtx) : AType → Set where
   Var : ∀ {α} → α ∈ Δ → AExp Δ α
   AInt : ℕ → AExp Δ AInt
@@ -358,8 +328,8 @@ e10 : Imp [] (AFun ((D Int) ⊎ (D Int)) ((D Int) ⊎ (D Int)))
 e10 =  λ Γ↝Γ' x → x
 
 
-liftede10 : Exp [] (typeof (AFun ((D Int) ⊎ (D Int)) ((D Int) ⊎ (D Int))))
-liftede10 = ELam {!e10!}
+-- liftede10 : Exp [] (typeof (AFun ((D Int) ⊎ (D Int)) ((D Int) ⊎ (D Int))))
+-- liftede10 = ELam {!e10!}
 
 --d.2. identity function with  static pair as its input 
 lift11 : AExp [] (AFun ((D Int) • (D Int)) ((D Int) • (D Int)))
@@ -441,67 +411,6 @@ data AExp' (Δ : ACtx) : AType → Set where
   ↑     : ∀ {α} → Liftable α → AExp' Δ α  → AExp' Δ (D (typeof α))
 
 
-  
-
-
-
--- The terms of AExp assign a binding time to each subterm. For
--- program specialization, we interpret terms with dynamic binding
--- time as the programs subject to specialization, and their subterms
--- with static binding time as statically known inputs. A partial
--- evaluation function (or specializer) then compiles the program into
--- a residual term for that is specialized for the static inputs. The
--- main complication when defining partial evaluation as a total,
--- primitively recursive function will be the treatment of the De
--- Bruijn variables of non-closed residual expressions.
-
-------------------------------------------------------------------------------
--- the following expressions are not well-typed but nonetheless very important
-------------------------------------------------------------------------------
------------
--- addition
------------
--- 1D +D (2S +S 3S) or,
--- DAdd (DInt 1) (AAdd (AInt 2) (AInt 3)) 
-
-
-
-
--- The interpretation of annotated types. 
---Imp : Ctx → AType → Set
---Imp Γ (AInt) = ℕ
---Imp Γ (AFun α₁ α₂) = ∀ {Γ'} → Γ ↝ Γ' → (Imp Γ' α₁ → Imp Γ' α₂)
---Imp Γ (D σ) = Exp Γ σ
---Imp Γ (α₁ • α₂) = (Imp Γ α₁) * (Imp Γ α₂)
---Imp Γ (α₁ ⊎ α₂) = (Imp Γ α₁) ⨄ (Imp Γ α₂)
-
-
-
--- elevate-var : ∀ {Γ Γ'} {τ : Type} → Γ ↝ Γ' → τ ∈ Γ → τ ∈ Γ'
--- elevate-var ↝-refl x = x
--- elevate-var (↝-extend Γ↝Γ') x = tl (elevate-var Γ↝Γ' x)
-
-
--- elevate-var2 : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → τ ∈ Γ → τ ∈ Γ''
--- elevate-var2 (↝↝-base x) x₁ = elevate-var x x₁
--- elevate-var2 (↝↝-extend Γ↝Γ'↝Γ'') hd = hd
--- elevate-var2 (↝↝-extend Γ↝Γ'↝Γ'') (tl x) = tl (elevate-var2 Γ↝Γ'↝Γ'' x)
-
-
-
-
--- elevate : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → Exp Γ τ → Exp Γ'' τ
--- elevate Γ↝Γ'↝Γ'' (EVar x) = EVar (elevate-var2 Γ↝Γ'↝Γ'' x)
--- elevate Γ↝Γ'↝Γ'' (EInt x) = EInt x
--- elevate Γ↝Γ'↝Γ'' (EAdd e e₁) = EAdd (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
--- elevate Γ↝Γ'↝Γ'' (ELam e) = ELam (elevate (↝↝-extend Γ↝Γ'↝Γ'') e)
--- elevate Γ↝Γ'↝Γ'' (EApp e e₁) = EApp (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
--- elevate Γ↝Γ'↝Γ'' (e ,  e₁) =  ((elevate Γ↝Γ'↝Γ'' e) , (elevate Γ↝Γ'↝Γ'' e₁))
--- elevate Γ↝Γ'↝Γ'' (Tl e) = Tl (elevate Γ↝Γ'↝Γ'' e)
--- elevate Γ↝Γ'↝Γ'' (Tr e) = Tr (elevate Γ↝Γ'↝Γ'' e)
--- elevate Γ↝Γ'↝Γ'' (EFst e) = EFst (elevate Γ↝Γ'↝Γ'' e)
--- elevate Γ↝Γ'↝Γ'' (ESnd e) = ESnd (elevate Γ↝Γ'↝Γ'' e)
--- elevate Γ↝Γ'↝Γ'' (ECase c e₁ e₂) = ECase (elevate Γ↝Γ'↝Γ'' c) (elevate (↝↝-extend Γ↝Γ'↝Γ'') e₁) (elevate (↝↝-extend Γ↝Γ'↝Γ'') e₂)
 
 
 
@@ -521,23 +430,18 @@ module SimpleAEnv where
   -- A little weaker, but much simpler
   data AEnv (Γ : Ctx) : ACtx → Set where
     [] : AEnv Γ []
-    --cons : ∀ {Δ} (α : AType) → Imp Γ α → AEnv Γ Δ → AEnv Γ (α ∷ Δ)
     cons : ∀ {Δ} {α : AType} → Imp Γ α → AEnv Γ Δ → AEnv Γ (α ∷ Δ)
   
   lookup : ∀ {α Δ Γ} → AEnv Γ Δ → α ∈ Δ → Imp Γ α
   lookup [] ()
-  --lookup {α} (cons .α  x aenv) hd = x
-  --lookup {α} (cons .y  x aenv) (tl {.α} {y} id) = lookup aenv id
   lookup {α} (cons x aenv) hd = x
   lookup {α} (cons x aenv) (tl {.α} {y} id) = lookup aenv id
   
   liftEnv : ∀ {Γ Γ' Δ} → Γ ↝ Γ' → AEnv Γ Δ → AEnv Γ' Δ
   liftEnv Γ↝Γ' [] = []
-  --liftEnv Γ↝Γ' (cons α x env) = cons α (lift α Γ↝Γ' x) (liftEnv Γ↝Γ' env)
   liftEnv Γ↝Γ' (cons {α = α} x env) = cons {α = α} (lift α Γ↝Γ' x) (liftEnv Γ↝Γ' env)
   
   consD : ∀ {Γ Δ} σ → AEnv Γ Δ → AEnv (σ ∷ Γ) (D σ ∷ Δ)
-  --consD σ env = (cons (D σ) (EVar hd) (liftEnv (↝-extend {τ = σ} ↝-refl) env))
   consD σ env = (cons {α = D σ} (EVar hd) (liftEnv (↝-extend {τ = σ} ↝-refl) env))
 
 
@@ -587,14 +491,6 @@ module SimpleAEnv where
 
     embed : ∀ {Γ α} → Liftable⁻ α → Exp Γ (typeof α) → (Imp Γ α)
     embed (D τ) e = e
-    -- embed (ty ⊎ ty₁) e = {!  (ECase e (EVar hd) ?)!}
-    -- embed (ty ⊎ ty₁) (EVar x) = {!!}
-    -- embed (ty ⊎ ty₁) (EApp e e₁) = {!!}
-    -- embed (ty ⊎ ty₁) (Tl e) = tl (embed ty e)
-    -- embed (ty ⊎ ty₁) (Tr e) = tr (embed ty₁ e)
-    -- embed (ty ⊎ ty₁) (EFst e) = {!!}
-    -- embed (ty ⊎ ty₁) (ESnd e) = {!!}
-    -- embed (ty ⊎ ty₁) (ECase e e₁ e₂) = {!!}
     embed (ty • ty₁) e = embed ty (EFst e) , embed ty₁ (ESnd e)
     embed {Γ} (AFun {α} ty₁ ty₂) e = 
       λ Γ↝Γ' v₁ → embed ty₂ (EApp (liftE Γ↝Γ' e) (lift' ty₁ v₁))
@@ -629,7 +525,7 @@ module SimpleAEnv where
 
 
 
-  
+{-  
 
 -- Correctness proof
 
@@ -672,11 +568,6 @@ module Correctness where
   strip (DSnd e) = ESnd (strip e)
   strip (DCase e e₁ e₂) = ECase (strip e) (strip e₁) (strip e₂)
 
-
-  
-
-  --liftE : ∀ {τ Γ Γ'} → Γ ↝ Γ' → Exp Γ τ → Exp Γ' τ
-  --liftE Γ↝Γ' e = elevate (↝↝-base Γ↝Γ') e
 
   stripLift : ∀ {α Δ Γ} → stripΔ Δ ↝ Γ → AExp Δ α  → Exp Γ (stripα α)
   stripLift Δ↝Γ = liftE Δ↝Γ ∘ strip
@@ -1110,3 +1001,4 @@ module Correctness where
     -- ... | tl c | tr c' | ()  
     -- ... | tr c | tl c' | ()
 
+-}
