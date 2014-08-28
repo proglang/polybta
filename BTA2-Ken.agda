@@ -51,12 +51,12 @@ mutual
 
   -- int | t -> t
   data SType : Set where
-    SInt  : SType
+    SNum  : SType
     SFun  : AType → AType → SType
 
 -- aux definitions
 ATInt : BT → AType
-ATInt bt = Ann bt SInt
+ATInt bt = Ann bt SNum
 ATFun  : BT → AType → AType → AType
 ATFun  bt at1 at2 = Ann bt (SFun at1 at2)
 
@@ -66,7 +66,7 @@ btof (Ann bt _) = bt
 
 -- well-formedness
 data wft : AType → Set where
-  wf-int  : ∀ {bt} → wft (Ann bt SInt)
+  wf-int  : ∀ {bt} → wft (Ann bt SNum)
   wf-fun  : ∀ {bt at1 at2} → wft at1 → wft at2
           → isTrue (bt ≼ btof at1) → isTrue (bt ≼ btof at2) → wft (Ann bt (SFun at1 at2))
 
@@ -82,16 +82,16 @@ lem-IsDynamic-by-wf (Ann D σ) _ = is-dyn σ
 ACtx = List AType
 
 data AExp (Δ : ACtx) : AType → Set where
-  AVar : ∀ {α} → α ∈ Δ → AExp Δ α
-  AInt : (bt : BT) → ℕ → AExp Δ (ATInt bt)
-  ALam : ∀ {α₁ α₂} (bt : BT) → wft (ATFun bt α₂ α₁) → AExp (α₂ ∷ Δ) α₁ → AExp Δ (ATFun bt α₂ α₁)
-  AApp : ∀ {α₁ α₂} (bt : BT) → wft (ATFun bt α₂ α₁) → AExp Δ (ATFun bt α₂ α₁) → AExp Δ α₂ → AExp Δ α₁
+  Var : ∀ {α} → α ∈ Δ → AExp Δ α
+  Cst : (bt : BT) → ℕ → AExp Δ (ATInt bt)
+  Lam : ∀ {α₁ α₂} (bt : BT) → wft (ATFun bt α₂ α₁) → AExp (α₂ ∷ Δ) α₁ → AExp Δ (ATFun bt α₂ α₁)
+  App : ∀ {α₁ α₂} (bt : BT) → wft (ATFun bt α₂ α₁) → AExp Δ (ATFun bt α₂ α₁) → AExp Δ α₂ → AExp Δ α₁
 
 
 -- Untyped expression, but correctly scoped
 data Exp' : ℕ → Set where
   EVar : ∀ {n} → Fin n → Exp' n
-  EInt : ∀ {n} → ℕ → Exp' n
+  ECst : ∀ {n} → ℕ → Exp' n
   ELam : ∀ {n} → Exp' (suc n) → Exp' n
   EApp : ∀ {n} → Exp' n → Exp' n → Exp' n
 
@@ -138,13 +138,13 @@ xlate {m} {n} e rewrite m+1+n≡1+m+n m n | +-comm m n = e
 
 shifter1 : ∀ {n} m → Exp' (suc n) → Exp' (suc (n + m))
 shifter1 {n} m (EVar x) = xlate {m} (EVar (raise m x)) 
-shifter1 m (EInt x) = EInt x
+shifter1 m (ECst x) = ECst x
 shifter1 m (ELam e) = ELam (shifter1 m e)
 shifter1 m (EApp e e₁) = EApp (shifter1 m e) (shifter1 m e₁)
 
 shifter0 : ∀ m → Exp' zero → Exp' m
 shifter0 m (EVar ())
-shifter0 m (EInt x) = EInt x
+shifter0 m (ECst x) = ECst x
 shifter0 m (ELam e) = ELam (shifter1 m e)
 shifter0 m (EApp e e₁) = EApp (shifter0 m e) (shifter0 m e₁)
 
@@ -161,7 +161,7 @@ helper p e rewrite m+n∸m≡n p = e
 
 -- index m = nesting level of dynamic definitions
 Imp : (m : ℕ) → AType → Set
-Imp m (Ann S SInt) = ℕ
+Imp m (Ann S SNum) = ℕ
 Imp m (Ann S (SFun α₁ α₂)) = ∀ n → m ≤ n → (Imp n α₁ → Imp n α₂)
 Imp m (Ann D σ) = Exp' m
 
@@ -172,7 +172,7 @@ data AEnv1 : ℕ → ACtx → Set where
   consD : ∀ {m Δ} → (α : AType) → isTrue (D ≼ btof α) → Imp (suc m) α → AEnv1 m Δ → AEnv1 (suc m) (α ∷ Δ)
 
 lift1 : ∀ {m n} α → m ≤ n → Imp m α → Imp n α 
-lift1 (Ann S SInt) p v = v
+lift1 (Ann S SNum) p v = v
 lift1 (Ann S (SFun x x₁)) p v = λ k n≤k → v k (≤-trans p n≤k)
 lift1 {m} {n} (Ann D σ) p v = helper p (shifter m (n ∸ m) v)
 
@@ -183,16 +183,16 @@ lookup1 p (consS p' .y x env) (tl {_} {y} x₁) = lookup1 (≤-trans p' p) env x
 lookup1 p (consD .y x x₁ env) (tl {_} {y} x₂) = lookup1 (≤-suc-left p) env x₂
 
 pe1 : ∀ {α Δ} m → AExp Δ α → AEnv1 m Δ → Imp m α
-pe1 m (AVar x) env = lookup1 ≤-refl env x
-pe1 m (AInt S x) env = x
-pe1 m (AInt D x) env = EInt x
-pe1 m (ALam S x e) env = λ o p → λ v → pe1 o e (consS p _ v env)
-pe1 m (ALam {α₂} {α₁} D (wf-fun w₁ w₂ d≤bt₁ d≤bt₂) e) env 
+pe1 m (Var x) env = lookup1 ≤-refl env x
+pe1 m (Cst S x) env = x
+pe1 m (Cst D x) env = ECst x
+pe1 m (Lam S x e) env = λ o p → λ v → pe1 o e (consS p _ v env)
+pe1 m (Lam {α₂} {α₁} D (wf-fun w₁ w₂ d≤bt₁ d≤bt₂) e) env 
   with lem-IsDynamic-by-wf α₁ d≤bt₁ | lem-IsDynamic-by-wf α₂ d≤bt₂ 
-pe1 m (ALam {.(Ann D σ₂)} {.(Ann D σ₁)} D (wf-fun _ _ d≤bt₁ d≤bt₂) e) env
+pe1 m (Lam {.(Ann D σ₂)} {.(Ann D σ₁)} D (wf-fun _ _ d≤bt₁ d≤bt₂) e) env
   | is-dyn σ₁ | is-dyn σ₂ = ELam (pe1 (suc m) e (consD (Ann D σ₁) d≤bt₁ (EVar zero) env))
-pe1 m (AApp S x e e₁) env = (pe1 m e env) m ≤-refl (pe1 m e₁ env)
-pe1 m (AApp {α₂} {α₁} D (wf-fun w₁ w₂ d≤bt₁ d≤bt₂) e e₁) env 
+pe1 m (App S x e e₁) env = (pe1 m e env) m ≤-refl (pe1 m e₁ env)
+pe1 m (App {α₂} {α₁} D (wf-fun w₁ w₂ d≤bt₁ d≤bt₂) e e₁) env 
   with lem-IsDynamic-by-wf α₁ d≤bt₁ | lem-IsDynamic-by-wf α₂ d≤bt₂ 
-pe1 m (AApp {.(Ann D σ₂)} {.(Ann D σ₁)} D (wf-fun w₁ w₂ d≤bt₁ d≤bt₂) e e₁) env
+pe1 m (App {.(Ann D σ₂)} {.(Ann D σ₁)} D (wf-fun w₁ w₂ d≤bt₁ d≤bt₂) e e₁) env
   | is-dyn σ₁ | is-dyn σ₂ = EApp (pe1 m e env) (pe1 m e₁ env)
