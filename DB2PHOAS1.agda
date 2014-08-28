@@ -1,4 +1,4 @@
---a)translating "De Bruijn" terms to "PHOAS" terms by [proj]
+--a) translating "De Bruijn" terms to "PHOAS" terms by [proj]
 --b)proof of the correctness of the translation
 module DB2PHOAS1 where
 open import Data.Nat hiding  (_<_;_⊔_;_*_;equal)
