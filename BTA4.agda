@@ -1,7 +1,7 @@
 --partial evaluation of a two-level typed lambda calculus
 --extended with: 
 --a)lifting constructor [Lift] of terms of static integer types
---b)correctness proof of the partial evaluation
+--b)correctness proof of partial evaluation
                 
 module BTA4 where
 
