@@ -86,32 +86,32 @@ module ListExtension where
 
   -- Extension of a list by consing elements at the front. 
   data _↝_ {A : Set} : List A → List A → Set where
-    ↝-refl   : ∀ {Γ}      → Γ ↝ Γ
-    ↝-extend : ∀ {Γ Γ' τ} → Γ ↝ Γ' → Γ ↝ (τ ∷ Γ')
+    refl   : ∀ {Γ}      → Γ ↝ Γ
+    extend : ∀ {Γ Γ' τ} → Γ ↝ Γ' → Γ ↝ (τ ∷ Γ')
   
   -- Combining two transitive extensions. 
   ↝-trans : ∀ {A : Set}{Γ Γ' Γ'' : List A} → Γ ↝ Γ' → Γ' ↝ Γ'' → Γ ↝ Γ''
-  ↝-trans Γ↝Γ' ↝-refl = Γ↝Γ'
-  ↝-trans Γ↝Γ' (↝-extend Γ'↝Γ'') = ↝-extend (↝-trans Γ↝Γ' Γ'↝Γ'')
+  ↝-trans Γ↝Γ' refl = Γ↝Γ'
+  ↝-trans Γ↝Γ' (extend Γ'↝Γ'') = extend (↝-trans Γ↝Γ' Γ'↝Γ'')
   
   -- Of course, ↝-refl is the identity for combining two extensions.
   lem-↝-refl-id : ∀ {A : Set} {Γ Γ' : List A} →
                     (Γ↝Γ' : Γ ↝ Γ') →
-                    Γ↝Γ' ≡ (↝-trans ↝-refl Γ↝Γ')  
-  lem-↝-refl-id ↝-refl = refl
-  lem-↝-refl-id (↝-extend Γ↝Γ') = cong ↝-extend (lem-↝-refl-id Γ↝Γ')
+                    Γ↝Γ' ≡ (↝-trans refl Γ↝Γ')  
+  lem-↝-refl-id refl = refl
+  lem-↝-refl-id (extend Γ↝Γ') = cong extend (lem-↝-refl-id Γ↝Γ')
 
   _⊕_ : ∀ {A : Set}{Γ Γ' Γ'' : List A} → 
         Γ ↝ Γ' → Γ' ↝ Γ'' → Γ ↝ Γ''
-  _⊕_ Γ↝Γ' ↝-refl = Γ↝Γ'                                 
-  _⊕_ Γ↝Γ' (↝-extend Γ'↝Γ'') = ↝-extend (Γ↝Γ' ⊕ Γ'↝Γ'')
+  _⊕_ Γ↝Γ' refl = Γ↝Γ'                                 
+  _⊕_ Γ↝Γ' (extend Γ'↝Γ'') = extend (Γ↝Γ' ⊕ Γ'↝Γ'')
 
   -- Extending a list in the middle: 
   data _↝_↝_ {A : Set} : List A → List A → List A → Set where
     -- First prepend the extension list to the common suffix
-    ↝↝-base   : ∀ {Γ Γ''} → Γ ↝ Γ'' → Γ ↝ [] ↝ Γ'' 
+    refl   : ∀ {Γ Γ''} → Γ ↝ Γ'' → Γ ↝ [] ↝ Γ'' 
     -- ... and then add the common prefix
-    ↝↝-extend : ∀ {Γ Γ' Γ'' τ} →
+    extend : ∀ {Γ Γ' Γ'' τ} →
                  Γ ↝ Γ' ↝ Γ'' → (τ ∷ Γ) ↝ (τ ∷ Γ') ↝ (τ ∷ Γ'') 
 open ListExtension public
 
@@ -128,14 +128,3 @@ open ListExtension public
 ... | H | refl = refl 
     ---------------------------------
 
--- data _↝_ {A : Set} : List A → List A → Set where
---   refl   : ∀ {Γ}      → Γ ↝ Γ
---   extend : ∀ {Γ Γ' τ} → Γ ↝ Γ' → Γ ↝ (τ ∷ Γ')
-
--- -- Extending a list in the middle: 
--- data _↝_↝_ {A : Set} : List A → List A → List A → Set where
---   -- First prepend the extension list to the common suffix
---   refl   : ∀ {Γ Γ''} → Γ ↝ Γ'' → Γ ↝ [] ↝ Γ'' 
---   -- ... and then add the common prefix
---   extend : ∀ {Γ Γ' Γ'' τ} →
---                Γ ↝ Γ' ↝ Γ'' → (τ ∷ Γ) ↝ (τ ∷ Γ') ↝ (τ ∷ Γ'') 
