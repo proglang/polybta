@@ -1,5 +1,5 @@
 --extended with terms of liftable types
-module DB2PHOAS-lifting where
+module DB2PHOAS2 where
 open import Data.Nat hiding  (_<_;_⊔_;_*_;equal)
 open import Data.Bool hiding (_∨_) 
 open import Function using (_∘_)
