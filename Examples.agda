@@ -14,10 +14,11 @@ module Examples where
 -- investigate the expected result of partial evaluation on some
 -- examples.
 
-{-
+
 module AExp-Examples where
 
   open import Data.Product
+  open import BTA
   
   -- (We pre-define some De Bruijn indices to improve
   -- readability of the examples:)
@@ -314,9 +315,9 @@ module AExp-Examples where
   -- Some more terms
   ------------------
   
--}
 
-{-
+
+
 
 module CheckExamples where
   open import Relation.Binary.PropositionalEquality
@@ -375,5 +376,5 @@ module Examples where
   -- Tests on pairs and sums
   --------------------------
 
--}
+
 
