@@ -67,15 +67,15 @@ open ListExtension
 
 
 data Type : Set where
-  Int : Type
+  Num : Type
   Fun : Type → Type → Type
 Ctx = List Type
 
 
 data Exp (Γ : Ctx) : Type → Set where
   EVar : ∀ {τ} → τ ∈ Γ → Exp Γ τ
-  EInt : ℕ → Exp Γ Int
-  EAdd : Exp Γ Int → Exp Γ Int -> Exp Γ Int
+  ECst : ℕ → Exp Γ Num
+  EAdd : Exp Γ Num → Exp Γ Num -> Exp Γ Num
   ELam : ∀ {τ τ'} → Exp (τ ∷ Γ) τ' → Exp Γ (Fun τ τ')
   EApp : ∀ {τ τ'} → Exp Γ (Fun τ τ')  → Exp Γ τ → Exp Γ τ'
 
@@ -83,7 +83,7 @@ data Exp (Γ : Ctx) : Type → Set where
 module Exp-Eval where
   -- interpretation of Exp types
   EImp : Type → Set
-  EImp Int = ℕ
+  EImp Num = ℕ
   EImp (Fun τ₁ τ₂) = EImp τ₁ → EImp τ₂
 
 
@@ -99,7 +99,7 @@ module Exp-Eval where
   -- Evaluation of residual terms, given a suitably typed environment.
   ev : ∀ {τ Γ} → Exp Γ τ → Env Γ → EImp τ
   ev (EVar x) env = lookupE x env
-  ev (EInt x) env = x
+  ev (ECst x) env = x
   ev (EAdd e f) env = ev e env + ev f env
   ev (ELam e) env = λ x → ev e (x ∷ env)
   ev (EApp e f) env = ev e env (ev f env)
@@ -107,15 +107,15 @@ module Exp-Eval where
 
 -- The binding-time-annotated language. 
 data AType : Set where
-    AInt  : AType
-    AFun  : AType → AType → AType
+    SNum  : AType
+    SFun  : AType → AType → AType
     D     : Type → AType
 ACtx = List AType
 
 -- The mapping from annotated types to residual types is straightforward.
 typeof : AType → Type
-typeof AInt = Int
-typeof (AFun α₁ α₂) = Fun (typeof α₁) (typeof α₂)
+typeof SNum = Num
+typeof (SFun α₁ α₂) = Fun (typeof α₁) (typeof α₂)
 typeof (D x) = x
 
 -- ATypes are stratified such that that dynamically bound
@@ -139,7 +139,7 @@ module AType-WF where
 
   module WF (ATy : Set) (typeof : ATy → Type) (btof : ATy → BT) where
     data wf : ATy → Set where
-      wf-int : ∀ α → typeof α ≡ Int → wf α
+      wf-int : ∀ α → typeof α ≡ Num → wf α
       wf-fun : ∀ α α₁ α₂ →
                typeof α ≡ Fun (typeof α₁) (typeof α₂) → 
                btof α ≤-bt btof α₁ →
@@ -151,18 +151,18 @@ module AType-WF where
   -- well-formedness, given the intended mapping from ATypes to
   -- binding times expained above:
   btof : AType → BT
-  btof AInt = stat
-  btof (AFun _ _) = stat
+  btof SNum = stat
+  btof (SFun _ _) = stat
   btof (D x) = dyn
 
   open WF AType typeof btof using (wf-fun; wf-int) renaming (wf to wf-AType)
   lem-wf-AType : ∀ α → wf-AType α
-  lem-wf-AType AInt = WF.wf-int AInt refl
-  lem-wf-AType (AFun α α₁) = WF.wf-fun (AFun α α₁) α α₁ refl (stat≤bt (btof α))
+  lem-wf-AType SNum = WF.wf-int SNum refl
+  lem-wf-AType (SFun α α₁) = WF.wf-fun (SFun α α₁) α α₁ refl (stat≤bt (btof α))
                              (stat≤bt (btof α₁))
                              (lem-wf-AType α)
                              (lem-wf-AType α₁)
-  lem-wf-AType (D Int) = WF.wf-int (D Int) refl
+  lem-wf-AType (D Num) = WF.wf-int (D Num) refl
   lem-wf-AType (D (Fun x x₁)) = WF.wf-fun (D (Fun x x₁))
                                           (D x) (D x₁)
                                           refl (bt≤bt dyn) (bt≤bt dyn)
@@ -175,15 +175,15 @@ module AType-WF where
 -- the corresponding binding times for the resulting terms.
 data AExp (Δ : ACtx) : AType → Set where
   Var : ∀ {α} → α ∈ Δ → AExp Δ α
-  AInt : ℕ → AExp Δ AInt
-  AAdd : AExp Δ AInt → AExp Δ AInt → AExp Δ AInt
-  ALam : ∀ {α₁ α₂}   → AExp (α₁ ∷ Δ) α₂ → AExp Δ (AFun α₁ α₂)
-  AApp : ∀ {α₁ α₂}   → AExp Δ (AFun α₂ α₁) → AExp Δ α₂ → AExp Δ α₁
-  DInt : ℕ → AExp Δ (D Int)
-  DAdd : AExp Δ (D Int) → AExp Δ (D Int) → AExp Δ (D Int)
+  SCst : ℕ → AExp Δ SNum
+  SAdd : AExp Δ SNum → AExp Δ SNum → AExp Δ SNum
+  SLam : ∀ {α₁ α₂}   → AExp (α₁ ∷ Δ) α₂ → AExp Δ (SFun α₁ α₂)
+  SApp : ∀ {α₁ α₂}   → AExp Δ (SFun α₂ α₁) → AExp Δ α₂ → AExp Δ α₁
+  DCst : ℕ → AExp Δ (D Num)
+  DAdd : AExp Δ (D Num) → AExp Δ (D Num) → AExp Δ (D Num)
   DLam : ∀ {σ₁ σ₂} → AExp ((D σ₁) ∷ Δ) (D σ₂) → AExp Δ (D (Fun σ₁ σ₂))
   DApp : ∀ {α₁ α₂} → AExp Δ (D (Fun α₂ α₁)) → AExp Δ (D α₂) → AExp Δ (D α₁)
-  Lift : AExp Δ AInt → AExp Δ (D Int)
+  Lift : AExp Δ SNum → AExp Δ (D Num)
 
 -- The terms of AExp assign a binding time to each subterm. For
 -- program specialization, we interpret terms with dynamic binding
@@ -237,32 +237,32 @@ module AExp-Examples where
   -- addition as a constant:
 
   -- Lift (5S +S 5S) --specializes to --> 5E
-  ex0 : AExp [] (D Int)
-  ex0 = (Lift (AAdd (AInt 5) (AInt 5)))
+  ex0 : AExp [] (D Num)
+  ex0 = (Lift (SAdd (SCst 5) (SCst 5)))
 
-  ex0' : AExp [] (D Int)
-  ex0' = DAdd (DInt 6) (Lift (AAdd (AInt 5) (AInt 5)))
+  ex0' : AExp [] (D Num)
+  ex0' = DAdd (DCst 6) (Lift (SAdd (SCst 5) (SCst 5)))
 
-  ex0-spec : Exp [] Int
-  ex0-spec = (EInt 10)
+  ex0-spec : Exp [] Num
+  ex0-spec = (ECst 10)
 
-  ex0'-spec : Exp [] Int
-  ex0'-spec = (EAdd (EInt 6) (EInt 10))
+  ex0'-spec : Exp [] Num
+  ex0'-spec = (EAdd (ECst 6) (ECst 10))
 
   -- The partial evaluation for this case is of course
   -- straightforward. We use Agda's ℕ as an implementation type for
   -- static integers and residual expressions Exp for dynamic ones.
   Imp0 : AType → Set
-  Imp0 AInt = ℕ
+  Imp0 SNum = ℕ
   Imp0 (D σ) = Exp [] σ
   Imp0 _ = ⊥ 
 
   pe-ex0 : ∀ { α } → AExp [] α → Maybe (Imp0 α)
-  pe-ex0 (AInt x) = just (x)
-  pe-ex0 (DInt x) = just (EInt x)
-  pe-ex0 (AAdd e f) = liftA2 _+_  (pe-ex0 e) (pe-ex0 f) 
+  pe-ex0 (SCst x) = just (x)
+  pe-ex0 (DCst x) = just (ECst x)
+  pe-ex0 (SAdd e f) = liftA2 _+_  (pe-ex0 e) (pe-ex0 f) 
   pe-ex0 (DAdd e f) = liftA2 EAdd (pe-ex0 e) (pe-ex0 f) 
-  pe-ex0 (Lift e) = EInt <$> (pe-ex0 e)
+  pe-ex0 (Lift e) = ECst <$> (pe-ex0 e)
   pe-ex0 _ = nothing
 
   ex0-test : pe-ex0 ex0 ≡ just ex0-spec
@@ -275,17 +275,17 @@ module AExp-Examples where
   -- typically arises when specializing the body of a lambda
   -- abstraction.
   -- (Dλ x → x +D Lift (5S + 5S)) ---specializes to--> Eλ x → EInt 10
-  ex1 : AExp [] (D (Fun Int Int))
-  ex1 = (DLam (DAdd x (Lift (AAdd (AInt 5) (AInt 5)))))
+  ex1 : AExp [] (D (Fun Num Num))
+  ex1 = (DLam (DAdd x (Lift (SAdd (SCst 5) (SCst 5)))))
 
-  ex1-spec : Exp [] (Fun Int Int)
-  ex1-spec = ELam (EAdd x' (EInt 10))
+  ex1-spec : Exp [] (Fun Num Num)
+  ex1-spec = ELam (EAdd x' (ECst 10))
 
-  ex1' : AExp (D Int ∷ []) (D Int) 
-  ex1' = (Lift (AAdd (AInt 5) (AInt 5)))
+  ex1' : AExp (D Num ∷ []) (D Num) 
+  ex1' = (Lift (SAdd (SCst 5) (SCst 5)))
 
-  ex1'-spec : Exp (Int ∷ []) Int 
-  ex1'-spec = (EAdd x' (EInt 10))
+  ex1'-spec : Exp (Num ∷ []) Num 
+  ex1'-spec = (EAdd x' (ECst 10))
 
   -- The implementation type now also has to hold open residual terms,
   -- which arise as the result of partially evaluating an open term
@@ -293,7 +293,7 @@ module AExp-Examples where
   -- implementation type thus requires a typing context as a
   -- parameter.
   Imp1 : Ctx → AType → Set
-  Imp1 _ AInt = ℕ
+  Imp1 _ SNum = ℕ
   Imp1 Γ (D τ) = Exp Γ τ
   Imp1 _ _ = ⊥
 
@@ -302,11 +302,11 @@ module AExp-Examples where
   -- Unsurprisingly, Partial evaluation of open terms emits
   -- implementations that are typed under the erased context.
   pe-ex1 : ∀ {α Δ} → AExp Δ α → Maybe (Imp1 (map erase Δ) α)
-  pe-ex1 (AInt x) = just (x)
-  pe-ex1 (DInt x) = just (EInt x)
-  pe-ex1 (AAdd e f) = liftA2 _+_  (pe-ex1 e) (pe-ex1 f) 
+  pe-ex1 (SCst x) = just (x)
+  pe-ex1 (DCst x) = just (ECst x)
+  pe-ex1 (SAdd e f) = liftA2 _+_  (pe-ex1 e) (pe-ex1 f) 
   pe-ex1 (DAdd e f) = liftA2 EAdd (pe-ex1 e) (pe-ex1 f) 
-  pe-ex1 (Lift e) = EInt <$> (pe-ex1 e)
+  pe-ex1 (Lift e) = ECst <$> (pe-ex1 e)
   pe-ex1 (DLam {τ} e) = ELam  <$> pe-ex1 e
   -- Technical note: In the case for variables we can simply exploit
   -- the fact that variables are functorial in the actual type of
@@ -318,21 +318,21 @@ module AExp-Examples where
   ex1-test = refl
 
   data Static : AType → Set where
-    SInt : Static AInt
-    SFun : ∀ { α₁ α₂ } → Static α₂ → Static (AFun α₁ α₂)
+    SInt : Static SNum
+    SFun : ∀ { α₁ α₂ } → Static α₂ → Static (SFun α₁ α₂)
 
   -- is-static : (α : AType) → Dec (Static α)
   -- is-static α = {!!}
 
   Imp2 : Ctx → AType → Set
-  Imp2 _ AInt = ℕ
+  Imp2 _ SNum = ℕ
   Imp2 Γ (D τ) = Exp Γ τ
-  Imp2 Γ (AFun α₁ α₂) =   Imp2 Γ α₁ → Imp2 Γ α₂
+  Imp2 Γ (SFun α₁ α₂) =   Imp2 Γ α₁ → Imp2 Γ α₂
 
 -- The interpretation of annotated types. 
 Imp : Ctx → AType → Set
-Imp Γ (AInt) = ℕ
-Imp Γ (AFun α₁ α₂) = ∀ {Γ'} → Γ ↝ Γ' → (Imp Γ' α₁ → Imp Γ' α₂)
+Imp Γ (SNum) = ℕ
+Imp Γ (SFun α₁ α₂) = ∀ {Γ'} → Γ ↝ Γ' → (Imp Γ' α₁ → Imp Γ' α₂)
 Imp Γ (D σ) = Exp Γ σ
 
 
@@ -347,14 +347,14 @@ elevate-var2 (↝↝-extend Γ↝Γ'↝Γ'') (tl x) = tl (elevate-var2 Γ↝Γ'�
 
 elevate : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → Exp Γ τ → Exp Γ'' τ
 elevate Γ↝Γ'↝Γ'' (EVar x) = EVar (elevate-var2 Γ↝Γ'↝Γ'' x)
-elevate Γ↝Γ'↝Γ'' (EInt x) = EInt x
+elevate Γ↝Γ'↝Γ'' (ECst x) = ECst x
 elevate Γ↝Γ'↝Γ'' (EAdd e e₁) = EAdd (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
 elevate Γ↝Γ'↝Γ'' (ELam e) = ELam (elevate (↝↝-extend Γ↝Γ'↝Γ'') e)
 elevate Γ↝Γ'↝Γ'' (EApp e e₁) = EApp (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
 
 lift : ∀ {Γ Γ'} α → Γ ↝ Γ' → Imp Γ α → Imp Γ' α 
-lift AInt p v = v
-lift (AFun x x₁) Γ↝Γ' v = λ Γ'↝Γ'' → v (↝-trans Γ↝Γ' Γ'↝Γ'')
+lift SNum p v = v
+lift (SFun x x₁) Γ↝Γ' v = λ Γ'↝Γ'' → v (↝-trans Γ↝Γ' Γ'↝Γ'')
 lift (D x₁) Γ↝Γ' v = elevate (↝↝-base Γ↝Γ') v
 
 module SimpleAEnv where
@@ -376,15 +376,15 @@ module SimpleAEnv where
   
   pe : ∀ {α Δ Γ} → AExp Δ α → AEnv Γ Δ → Imp Γ α
   pe (Var x) env = lookup env x 
-  pe (AInt x) env = x
-  pe (AAdd e₁ e₂) env = pe e₁ env + pe e₂ env
-  pe (ALam {α} e) env = λ Γ↝Γ' → λ y → pe e (cons α y (liftEnv Γ↝Γ' env)) 
-  pe (AApp e₁ e₂) env = ((pe e₁ env) ↝-refl) (pe e₂ env)
-  pe (DInt x) env = EInt x
+  pe (SCst x) env = x
+  pe (SAdd e₁ e₂) env = pe e₁ env + pe e₂ env
+  pe (SLam {α} e) env = λ Γ↝Γ' → λ y → pe e (cons α y (liftEnv Γ↝Γ' env)) 
+  pe (SApp e₁ e₂) env = ((pe e₁ env) ↝-refl) (pe e₂ env)
+  pe (DCst x) env = ECst x
   pe (DAdd e e₁) env = EAdd (pe e env) (pe e₁ env)
   pe (DLam {σ} e) env = ELam (pe e (consD σ env))
   pe (DApp e e₁) env = EApp (pe e env) (pe e₁ env)
-  pe (Lift e) env = EInt (pe e env) 
+  pe (Lift e) env = ECst (pe e env) 
 
 module CheckExamples where
   open import Relation.Binary.PropositionalEquality hiding ([_])
@@ -411,13 +411,13 @@ module Examples where
   z = Var (tl (tl hd))
 
 
-  term1 : AExp [] (D (Fun Int (Fun Int Int)))
-  term1 = DLam (AApp (ALam (DLam (AApp (ALam y) x)))
-                     ((ALam (DAdd x y))))
+  term1 : AExp [] (D (Fun Num (Fun Num Num)))
+  term1 = DLam (SApp (SLam (DLam (SApp (SLam y) x)))
+                     ((SLam (DAdd x y))))
 
-  term2 : AExp [] (D (Fun Int (Fun Int Int)))
-  term2 = DLam (AApp (ALam (DLam (AApp (ALam y) x)))
-                     ((ALam (DLam {σ₁ = Int} (DAdd y z)))))
+  term2 : AExp [] (D (Fun Num (Fun Num Num)))
+  term2 = DLam (SApp (SLam (DLam (SApp (SLam y) x)))
+                     ((SLam (DLam {σ₁ = Num} (DAdd y z)))))
 
 
   pe[] : ∀ {α} → AExp [] α → Imp [] α
@@ -445,11 +445,11 @@ module Correctness where
 
   strip : ∀ {α Δ} → AExp Δ α → Exp (stripΔ Δ) (stripα α)
   strip (Var x) = EVar (strip-lookup x)
-  strip (AInt x) = EInt x
-  strip (AAdd e f) = EAdd (strip e) (strip f)
-  strip (ALam e) = ELam (strip e)
-  strip (AApp e f) = EApp (strip e) (strip f)
-  strip (DInt x) = EInt x
+  strip (SCst x) = ECst x
+  strip (SAdd e f) = EAdd (strip e) (strip f)
+  strip (SLam e) = ELam (strip e)
+  strip (SApp e f) = EApp (strip e) (strip f)
+  strip (DCst x) = ECst x
   strip (DAdd e f) = EAdd (strip e) (strip f)
   strip (DLam e) = ELam (strip e)
   strip (DApp e f) = EApp (strip e) (strip f)
@@ -495,8 +495,8 @@ module Correctness where
     -- (v : Imp Γ α) is not necessarily closed, equivalence is defined for
     -- the closure (Env Γ, ImpΓ α)
     Equiv : ∀ {α Γ} → Env Γ → Imp Γ α → EImp (stripα α) → Set 
-    Equiv {AInt} env av v = av ≡ v
-    Equiv {AFun α₁ α₂} {Γ} env af f = 
+    Equiv {SNum} env av v = av ≡ v
+    Equiv {SFun α₁ α₂} {Γ} env af f = 
         ∀ {Γ' env' Γ↝Γ'} → (Γ↝Γ' ⊢ env ↝ env') →
         {ax : Imp Γ' α₁} → {x : EImp (stripα α₁)} →
         Equiv env' ax x → Equiv env' (af Γ↝Γ' ax) (f x)
@@ -565,7 +565,7 @@ module Correctness where
                       (e : Exp Γ τ) →
                       ev e env ≡ ev (elevate Γ↝Γ'↝Γ'' e) env''
     lem-elevate-≡ env↝env' (EVar x) = lookup-elevate2-≡ env↝env' x
-    lem-elevate-≡ env↝env' (EInt x) = refl
+    lem-elevate-≡ env↝env' (ECst x) = refl
     lem-elevate-≡ env↝env' (EAdd e f) with lem-elevate-≡ env↝env' e | lem-elevate-≡ env↝env' f
     ... | IA1 | IA2 = cong₂ _+_ IA1 IA2
     lem-elevate-≡ {Γ↝Γ'↝Γ'' = Γ↝Γ'↝Γ''}
@@ -582,8 +582,8 @@ module Correctness where
                        (v : EImp τ) (va : Imp Γ α) →
                        Equiv env va v → 
                        Equiv env (lift α ↝-refl va) v
-    lem-lift-refl-id {AInt} env v va eq = eq
-    lem-lift-refl-id {AFun α α₁} {Γ} env v va eq = body  
+    lem-lift-refl-id {SNum} env v va eq = eq
+    lem-lift-refl-id {SFun α α₁} {Γ} env v va eq = body  
       where body : ∀ {Γ'} {env' : Env Γ'} {Γ↝Γ' : Γ ↝ Γ'} →
                    Γ↝Γ' ⊢ env ↝ env' →
                    {av' : Imp Γ' α} {v' : EImp (stripα α)} → 
@@ -601,8 +601,8 @@ module Correctness where
                      Equiv env va v →
                      Equiv env' (lift α Γ↝Γ' va) v
     lem-lift-equiv va v {.env'} {env'} (refl .env') eq = lem-lift-refl-id env' v va eq 
-    lem-lift-equiv {AInt} va v (extend v₁ env↝env') eq = eq
-    lem-lift-equiv {AFun α α₁} va v (extend v₁ env↝env') eq =
+    lem-lift-equiv {SNum} va v (extend v₁ env↝env') eq = eq
+    lem-lift-equiv {SFun α α₁} va v (extend v₁ env↝env') eq =
       λ v₁env₁↝env' eq₁ → eq (env↝trans (extend v₁ env↝env') v₁env₁↝env') eq₁
     lem-lift-equiv {D x} va v (extend v₁ env↝env') eq
       rewrite sym eq = sym (lem-elevate-≡ (refl (extend v₁ env↝env')) va)
@@ -649,18 +649,18 @@ module Correctness where
                  Equiv-Env env' aenv env → 
                  Equiv env' (pe e aenv) (ev (strip e) env)
     pe-correct (Var x) env' eqenv = lem-equiv-lookup env' eqenv x
-    pe-correct (AInt x) env' eqenv = refl
-    pe-correct (AAdd e f) env' eqenv
+    pe-correct (SCst x) env' eqenv = refl
+    pe-correct (SAdd e f) env' eqenv
       rewrite pe-correct e env' eqenv | pe-correct f env' eqenv = refl
-    pe-correct (ALam e) env' eqenv =
+    pe-correct (SLam e) env' eqenv =
       λ {_} {env''} env'↝env'' {av'} {v'} eq →
         let eqenv' = (lem-equiv-env-lift-lift env'↝env'' eqenv)
             eqenv'' = (cons eqenv' av' v' eq)
         in pe-correct e env'' eqenv''
-    pe-correct (AApp e f) env' eqenv
+    pe-correct (SApp e f) env' eqenv
       with pe-correct e env' eqenv | pe-correct f env' eqenv
     ... | IAe | IAf = IAe (refl env') IAf
-    pe-correct (DInt x) env' eqenv = refl
+    pe-correct (DCst x) env' eqenv = refl
     pe-correct (DAdd e f) env' eqenv 
       rewrite pe-correct e env' eqenv | pe-correct f env' eqenv = refl
     pe-correct (DLam e) env' eqenv =
