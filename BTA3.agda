@@ -1,4 +1,7 @@
-module BTA5 where
+--an alternative two-level typed lambda calculus where
+--well-formedness restriction is incorporated into the 
+--types
+module BTA3 where
 
 open import Data.Nat hiding (_<_)
 open import Data.Bool
@@ -8,9 +11,7 @@ open import Data.Nat.Properties
 
 open import Relation.Nullary
 
------------------
--- CLEANUP (∈) : this is surely in the standard library
------------------
+
 -- More general purpose definitions (should also be in standard library)
 -- list membership
 infix 4 _∈_
@@ -36,30 +37,22 @@ ACtx = List AType
 
 Ctx = List Type
 
------------------------
--- CLEANUP (≤) : these properties are surely in the standard library
------------------------
+
 ≤-refl : ∀ {n} → n ≤ n
 ≤-refl {zero} = z≤n
 ≤-refl {suc n} = s≤s ≤-refl
 
------------------------
--- CLEANUP (≤) : these properties are surely in the standard library
------------------------
+
 ≤-trans : ∀ {a b c} → a ≤ b → b ≤ c → a ≤ c
 ≤-trans z≤n q = z≤n
 ≤-trans (s≤s p) (s≤s q) = s≤s (≤-trans p q)
 
------------------------
--- CLEANUP (≤) : these properties are surely in the standard library
------------------------
+
 ≤-suc-right : ∀ {m n} → m ≤ n → m ≤ suc n
 ≤-suc-right z≤n = z≤n
 ≤-suc-right (s≤s p) = s≤s (≤-suc-right p)
 
------------------------
--- CLEANUP (≤) : these properties are surely in the standard library
------------------------
+
 ≤-suc-left : ∀ {m n} → suc m ≤ n → m ≤ n
 ≤-suc-left (s≤s p) = ≤-suc-right p
 
@@ -107,14 +100,14 @@ data AExp (Δ : ACtx) : AType → Set where
   DLam : ∀ {α₁ α₂}   → AExp ((D α₂) ∷ Δ) (D α₁) → AExp Δ (D (Fun α₂ α₁))
   DApp : ∀ {α₁ α₂}   → AExp Δ (D (Fun α₂ α₁)) → AExp Δ (D α₂) → AExp Δ (D α₁)
 
--- -- index Γ = nesting level of dynamic definitions / dynamic environment
+-- index Γ = nesting level of dynamic definitions / dynamic environment
 Imp'' : Ctx → AType → Set
 Imp'' Γ (AInt) = ℕ
 Imp'' Γ (AFun α₁ α₂) = ∀ {Γ'} → Γ ↝ Γ' → (Imp'' Γ' α₁ → Imp'' Γ' α₂)
 Imp'' Γ (D σ) = Exp'' Γ σ
 
 
--- -- index = nesting level of dynamic definitions
+-- index = nesting level of dynamic definitions
 data AEnv2 : Ctx → ACtx → Set where
   [] : AEnv2 [] []
   consS : ∀ {Γ Δ Γ'} → Γ ↝ Γ' → (α : AType) → Imp'' Γ' α → AEnv2 Γ Δ → AEnv2 Γ' (α ∷ Δ)
@@ -159,8 +152,6 @@ pe2 (AApp e₁ e₂) env = ((pe2 e₁ env) ↝-refl) (pe2 e₂ env)
 pe2 (DInt x) env = EInt x
 pe2 (DAdd e e₁) env = EAdd (pe2 e env) (pe2 e₁ env)
 pe2 {D (Fun σ₁ σ₂)} (DLam e) env = ELam (pe2 e (consD σ₁ (EVar hd) env))
-                                                 -- ELam (pe2 (consS (↝-extend {τ = σ₁} ↝-refl) (D σ₁) (EVar hd) env)) works too;
-                                                 -- it is probably a canonical solution, but I (Lu) do not see why...
 pe2 (DApp e e₁) env = EApp (pe2 e env) (pe2 e₁ env)
 
 module Examples where
@@ -173,13 +164,12 @@ module Examples where
   z : ∀ {α₁ α₂ α Δ} → AExp (α₁ ∷ α₂ ∷ α ∷ Δ) α
   z = AVar (tl (tl hd))
 
--- Dλ y → let f = λ x → x D+ y in Dλ z → f z
+
   term1 : AExp [] (D (Fun Int (Fun Int Int)))
   term1 = DLam (AApp (ALam (DLam (AApp (ALam y) x)))
                      ((ALam (DAdd x y))))
 
--- Dλ y → let f = λ x → (Dλ w → x D+ y) in Dλ z → f z
--- Dλ y → (λ f → Dλ z → f z) (λ x → (Dλ w → x D+ y))
+
   term2 : AExp [] (D (Fun Int (Fun Int Int)))
   term2 = DLam (AApp (ALam (DLam (AApp (ALam y) x)))
                      ((ALam (DLam {α₂ = Int} (DAdd y z)))))
@@ -190,4 +180,3 @@ module Examples where
   ex-pe-term2 : pe2 term2 [] ≡ ELam (ELam (EVar hd))
   ex-pe-term2 = refl
 
--- end of file
