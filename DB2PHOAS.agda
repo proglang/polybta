@@ -1,5 +1,6 @@
---extended with terms of liftable types
-module DB2PHOAS2 where
+--a)translation from "De Bruijn" terms to "PHOAS" terms
+--b)correctness proof of the translation
+module DB2PHOAS where
 open import Data.Nat hiding  (_<_;_⊔_;_*_;equal)
 open import Data.Bool hiding (_∨_) 
 open import Function using (_∘_)
