@@ -1,3 +1,4 @@
+--translating from "PHOAS" terms to "De Bruijn" terms
 module PHOAS2DB where
 open import Data.Nat hiding  (_<_;_⊔_;_*_;equal)
 open import Data.Bool hiding (_∨_) 
@@ -8,7 +9,7 @@ open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality 
 open import Data.Empty
 open import Data.Product
-open import Lib hiding (_∧_)
+open import BTA-Lib hiding (_∧_)
 open import Data.Sum
 open import Data.Unit
 
