@@ -1,5 +1,5 @@
--- specialize two-level typed terms to untyped lambda calculus
-module BTA-ken where
+--an alternative way of specifying the environment [AEnv]
+module BTA2-Ken where
 
 open import Data.Nat hiding (_<_)
 open import Data.Bool
