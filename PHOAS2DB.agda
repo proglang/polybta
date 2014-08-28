@@ -9,7 +9,7 @@ open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality 
 open import Data.Empty
 open import Data.Product
-open import BTA-Lib hiding (_∧_)
+open import Lib hiding (_∧_)
 open import Data.Sum
 open import Data.Unit
 
