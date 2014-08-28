@@ -1,4 +1,4 @@
-module BTA3 where
+module BTA1 where
 
 open import Data.Nat
 open import Data.Bool
