@@ -21,13 +21,13 @@ data _∈_ {A : Set} : A → List A → Set where
 
 
 data Type : Set where
-  Int : Type
+  Num : Type
   Fun : Type → Type → Type
 
 
 data AType : Set where
-    AInt  : AType
-    AFun  : AType → AType → AType
+    SNum  : AType
+    SFun  : AType → AType → AType
     D     : Type → AType
 
 -- typed annotated expressions
@@ -83,27 +83,27 @@ data _↝_↝_ : Ctx → Ctx → Ctx → Set where
 -- Typed residula expressions
 data Exp'' (Γ : Ctx) : Type → Set where
   EVar : ∀ {τ} → τ ∈ Γ → Exp'' Γ τ
-  EInt : ℕ → Exp'' Γ Int
-  EAdd : Exp'' Γ Int → Exp'' Γ Int -> Exp'' Γ Int
+  ECst : ℕ → Exp'' Γ Num
+  EAdd : Exp'' Γ Num → Exp'' Γ Num -> Exp'' Γ Num
   ELam : ∀ {τ τ'} → Exp'' (τ ∷ Γ) τ' → Exp'' Γ (Fun τ τ')
   EApp : ∀ {τ τ'} → Exp'' Γ (Fun τ τ')  → Exp'' Γ τ → Exp'' Γ τ'
 
 
 data AExp (Δ : ACtx) : AType → Set where
-  AVar : ∀ {α} → α ∈ Δ → AExp Δ α
-  AInt : ℕ → AExp Δ AInt
-  AAdd : AExp Δ AInt → AExp Δ AInt → AExp Δ AInt
-  ALam : ∀ {α₁ α₂}   → AExp (α₂ ∷ Δ) α₁ → AExp Δ (AFun α₂ α₁)
-  AApp : ∀ {α₁ α₂}   → AExp Δ (AFun α₂ α₁) → AExp Δ α₂ → AExp Δ α₁
-  DInt : ℕ → AExp Δ (D Int)
-  DAdd : AExp Δ (D Int) → AExp Δ (D Int) → AExp Δ (D Int)
+  Var : ∀ {α} → α ∈ Δ → AExp Δ α
+  SCst : ℕ → AExp Δ SNum
+  SAdd : AExp Δ SNum → AExp Δ SNum → AExp Δ SNum
+  SLam : ∀ {α₁ α₂}   → AExp (α₂ ∷ Δ) α₁ → AExp Δ (SFun α₂ α₁)
+  SApp : ∀ {α₁ α₂}   → AExp Δ (SFun α₂ α₁) → AExp Δ α₂ → AExp Δ α₁
+  DCst : ℕ → AExp Δ (D Num)
+  DAdd : AExp Δ (D Num) → AExp Δ (D Num) → AExp Δ (D Num)
   DLam : ∀ {α₁ α₂}   → AExp ((D α₂) ∷ Δ) (D α₁) → AExp Δ (D (Fun α₂ α₁))
   DApp : ∀ {α₁ α₂}   → AExp Δ (D (Fun α₂ α₁)) → AExp Δ (D α₂) → AExp Δ (D α₁)
 
 -- index Γ = nesting level of dynamic definitions / dynamic environment
 Imp'' : Ctx → AType → Set
-Imp'' Γ (AInt) = ℕ
-Imp'' Γ (AFun α₁ α₂) = ∀ {Γ'} → Γ ↝ Γ' → (Imp'' Γ' α₁ → Imp'' Γ' α₂)
+Imp'' Γ (SNum) = ℕ
+Imp'' Γ (SFun α₁ α₂) = ∀ {Γ'} → Γ ↝ Γ' → (Imp'' Γ' α₁ → Imp'' Γ' α₂)
 Imp'' Γ (D σ) = Exp'' Γ σ
 
 
@@ -126,14 +126,14 @@ elevate-var2 (↝↝-extend Γ↝Γ'↝Γ'') (tl x) = tl (elevate-var2 Γ↝Γ'�
 
 elevate : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → Exp'' Γ τ → Exp'' Γ'' τ
 elevate Γ↝Γ'↝Γ'' (EVar x) = EVar (elevate-var2 Γ↝Γ'↝Γ'' x)
-elevate Γ↝Γ'↝Γ'' (EInt x) = EInt x
+elevate Γ↝Γ'↝Γ'' (ECst x) = ECst x
 elevate Γ↝Γ'↝Γ'' (EAdd e e₁) = EAdd (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
 elevate Γ↝Γ'↝Γ'' (ELam e) = ELam (elevate (↝↝-extend Γ↝Γ'↝Γ'') e)
 elevate Γ↝Γ'↝Γ'' (EApp e e₁) = EApp (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
 
 lift2 : ∀ {Γ Γ'} α → Γ ↝ Γ' → Imp'' Γ α → Imp'' Γ' α 
-lift2 AInt p v = v
-lift2 (AFun x x₁) Γ↝Γ' v = λ Γ'↝Γ'' → v (↝-trans Γ↝Γ' Γ'↝Γ'')
+lift2 SNum p v = v
+lift2 (SFun x x₁) Γ↝Γ' v = λ Γ'↝Γ'' → v (↝-trans Γ↝Γ' Γ'↝Γ'')
 lift2 (D x₁) Γ↝Γ' v = elevate (↝↝-base Γ↝Γ') v
 
 lookup2 : ∀ {α Δ Γ Γ'} → Γ ↝ Γ' → AEnv2 Γ Δ → α ∈ Δ → Imp'' Γ' α
@@ -144,12 +144,12 @@ lookup2 ↝-refl (consD α₁ v env) (tl x) = lookup2 (↝-extend ↝-refl) env 
 lookup2 (↝-extend Γ↝Γ') (consD α₁ v env) (tl x) = lookup2 (lem α₁ _ _ _ Γ↝Γ') env x
 
 pe2 : ∀ {α Δ Γ} → AExp Δ α → AEnv2 Γ Δ → Imp'' Γ α
-pe2 (AVar x) env = lookup2 ↝-refl env x
-pe2 (AInt x) env = x
-pe2 (AAdd e₁ e₂) env = pe2 e₁ env + pe2 e₂ env
-pe2 {AFun α₂ α₁} (ALam e) env = λ Γ↝Γ' → λ y → pe2 e (consS Γ↝Γ' α₂ y env)
-pe2 (AApp e₁ e₂) env = ((pe2 e₁ env) ↝-refl) (pe2 e₂ env)
-pe2 (DInt x) env = EInt x
+pe2 (Var x) env = lookup2 ↝-refl env x
+pe2 (SCst x) env = x
+pe2 (SAdd e₁ e₂) env = pe2 e₁ env + pe2 e₂ env
+pe2 {SFun α₂ α₁} (SLam e) env = λ Γ↝Γ' → λ y → pe2 e (consS Γ↝Γ' α₂ y env)
+pe2 (SApp e₁ e₂) env = ((pe2 e₁ env) ↝-refl) (pe2 e₂ env)
+pe2 (DCst x) env = ECst x
 pe2 (DAdd e e₁) env = EAdd (pe2 e env) (pe2 e₁ env)
 pe2 {D (Fun σ₁ σ₂)} (DLam e) env = ELam (pe2 e (consD σ₁ (EVar hd) env))
 pe2 (DApp e e₁) env = EApp (pe2 e env) (pe2 e₁ env)
@@ -158,21 +158,21 @@ module Examples where
   open import Relation.Binary.PropositionalEquality
 
   x : ∀ {α Δ} → AExp (α ∷ Δ) α
-  x = AVar hd
+  x = Var hd
   y : ∀ {α₁ α Δ} → AExp (α₁ ∷ α ∷ Δ) α
-  y = AVar (tl hd)
+  y = Var (tl hd)
   z : ∀ {α₁ α₂ α Δ} → AExp (α₁ ∷ α₂ ∷ α ∷ Δ) α
-  z = AVar (tl (tl hd))
+  z = Var (tl (tl hd))
 
 
-  term1 : AExp [] (D (Fun Int (Fun Int Int)))
-  term1 = DLam (AApp (ALam (DLam (AApp (ALam y) x)))
-                     ((ALam (DAdd x y))))
+  term1 : AExp [] (D (Fun Num (Fun Num Num)))
+  term1 = DLam (SApp (SLam (DLam (SApp (SLam y) x)))
+                     ((SLam (DAdd x y))))
 
 
-  term2 : AExp [] (D (Fun Int (Fun Int Int)))
-  term2 = DLam (AApp (ALam (DLam (AApp (ALam y) x)))
-                     ((ALam (DLam {α₂ = Int} (DAdd y z)))))
+  term2 : AExp [] (D (Fun Num (Fun Num Num)))
+  term2 = DLam (SApp (SLam (DLam (SApp (SLam y) x)))
+                     ((SLam (DLam {α₂ = Num} (DAdd y z)))))
 
   ex-pe-term1 : pe2 term1 [] ≡ ELam (ELam (EVar hd))
   ex-pe-term1 = refl
