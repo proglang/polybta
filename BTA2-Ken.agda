@@ -13,6 +13,7 @@ open import Relation.Binary.PropositionalEquality as PropEq
   using (_≡_; _≢_; refl; sym; cong; cong₂)
 open PropEq.≡-Reasoning
 open import Data.Nat.Properties
+open import Lib
 
 -- Binding times
 data BT : Set where
@@ -35,12 +36,7 @@ isTrue : Bool → Set
 isTrue true  = True
 isTrue false = False
 
--- More general purpose definitions (should also be in standard library)
--- list membership
-infix 4 _∈_
-data _∈_ {A : Set} : A → List A → Set where
-  hd : ∀ {x xs} → x ∈ (x ∷ xs)
-  tl : ∀ {x y xs} → x ∈ xs → x ∈ (y ∷ xs)
+
 
 
 -- Types of the calculus
