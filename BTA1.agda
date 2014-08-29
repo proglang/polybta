@@ -1,15 +1,42 @@
+--------------------------------------------------------
 -- partial evaluation of two-level typed lambda calculus
+--------------------------------------------------------
+--1)glossary 
+--  a)source language: 
+--    The language in which the input to the evaluator is written;
+--  b)two-level types:
+--    The system which types the source language. It consists of
+--    the static types "S" and the dynamic types "D";
+--  c)base language:
+--    The language in which the output of the evaluator is written
+--    when the source language is D;
+--  d)base types:
+--    The system which types the base language
+--  e)meta language:
+--    Agda syntax in which the output of the evaluator is written when 
+--    the source language is S;
+--  f)target languages:
+--    meta language + base language
+--2)summary of the file:
+--  The source language,[AExp],containing expressions with parts marked either S or D  and the 
+--  base language,[Exp],are specified. The partial evaluator,[pe],taking expressions in source 
+--  language as input evaluates static sub-expressions by computing their meta-level projections. 
+--  All dynamic sub-expressions,on the other hand are simply translated to the base language. 
+--  Thus,the partial evaluator simply transforms a program to another by evaluating parts
+--  of that program while keeping the others essentially unchanged.   
+
 module BTA1 where
 
 open import Data.Nat
 open import Data.Bool
 open import Data.List
-open import Lib 
+--open import Lib 
 
 -- Binding times
 data BT : Set where
   S : BT
   D : BT
+
 
 -- ``subsumption'' binding times; static can be treated as dynamic,
 -- but not vice versa
@@ -29,35 +56,47 @@ isTrue : Bool → Set
 isTrue true  = True
 isTrue false = False
 
+infix 4 _∈_
+data _∈_ {A : Set} : A → List A → Set where
+  hd : ∀ {x xs} → x ∈ (x ∷ xs)
+  tl : ∀ {x y xs} → x ∈ xs → x ∈ (y ∷ xs)
+
+
 -----------
 -- Sublists
 -----------
-data _cx-≤_ {A : Set} : List A → List A → Set where
-  cxle-eq : (l : List A) → l cx-≤ l
-  cxle-lt : ∀ {l₁ l₂} x → l₁ cx-≤ l₂ → l₁ cx-≤ (x ∷ l₂)
 
 
-lem-cx-≤-trans : {A : Set} → {l₁ : List A} {l₂ : List A} {l₃ : List A} →
-                 l₁ cx-≤ l₂ → l₂ cx-≤ l₃ → l₁ cx-≤ l₃
-lem-cx-≤-trans le1  (cxle-eq l) = le1
-lem-cx-≤-trans (cxle-eq l) (cxle-lt x e) = cxle-lt x e
-lem-cx-≤-trans (cxle-lt x e) (cxle-lt x' e') = cxle-lt x' (lem-cx-≤-trans (cxle-lt x e) e')
- 
+data _↝_ {A : Set} : List A → List A → Set where
+  refl   : {l : List A} → l ↝ l
+  extend : ∀ {l₁ l₂ τ}  → l₁ ↝ l₂ → l₁ ↝ (τ ∷ l₂)
 
 
-_cxle-∷_ : {A : Set} (x : A) (l : List A) → l cx-≤ (x ∷ l)
-x cxle-∷ l = cxle-lt x (cxle-eq l)
+
+lem-↝-trans : {A : Set} → {l₁ : List A} {l₂ : List A} {l₃ : List A} →
+                 l₁ ↝ l₂ → l₂ ↝ l₃ → l₁ ↝ l₃
+lem-↝-trans le1  refl = le1
+lem-↝-trans refl (extend e) = extend e
+lem-↝-trans (extend e) (extend e') = extend (lem-↝-trans (extend e) e') 
 
 
-data _⊆_ {A : Set} : List A → List A → Set where
-  refl-⊆ : ∀ {l} → l ⊆ l
-  step-⊆ : ∀ {l} x l₁ l₂ → l ⊆ (l₁ ++ l₂) → l ⊆ (l₁ ++ (x ∷ l₂))
 
-lem-⊆-trans : {A : Set} → {l₁ : List A} {l₂ : List A} {l₃ : List A} →
-                 l₁ ⊆ l₂ → l₂ ⊆ l₃ → l₁ ⊆ l₃
-lem-⊆-trans e (refl-⊆ {l}) = e
-lem-⊆-trans (refl-⊆ {l}) (step-⊆ x l₁ l₂ e) = step-⊆ x l₁ l₂ e
-lem-⊆-trans (step-⊆ x l₁ l₂ e) (step-⊆ x' l₁' l₂' e') = step-⊆ x' l₁' l₂' (lem-⊆-trans (step-⊆ x l₁ l₂ e) e') 
+_↝-∷_ : {A : Set} (x : A) (l : List A) → l ↝ (x ∷ l)
+x ↝-∷ l = extend refl
+
+
+
+data _↝_↝_ {A : Set} : List A → List A → List A → Set where
+  refl   : ∀ {Γ Γ''} → Γ ↝ Γ'' → Γ ↝ [] ↝ Γ''
+  extend : ∀ {Γ Γ' Γ'' τ} →
+             Γ ↝ Γ' ↝ Γ'' → (τ ∷ Γ) ↝ (τ ∷ Γ') ↝ (τ ∷ Γ'')
+
+_⊕_ : ∀ {A : Set}{Γ Γ' Γ'' : List A} → 
+        Γ ↝ Γ' → Γ' ↝ Γ'' → Γ ↝ Γ''
+_⊕_ Γ↝Γ' refl = Γ↝Γ'                                 
+_⊕_ Γ↝Γ' (extend Γ'↝Γ'') = extend (Γ↝Γ' ⊕ Γ'↝Γ'')
+
+
 ---------------
 -- end Sublists
 ---------------
@@ -97,7 +136,6 @@ btof : AType → BT
 btof (Ann bt _) = bt
 
 -- constraint on types: well-formedness
-
 data wft : AType → Set where
   wf-int  : ∀ {bt} → wft (Ann bt SNum)
   wf-fun  : ∀ {bt at1 at2} → wft at1 → wft at2
@@ -142,36 +180,30 @@ data Exp (Γ : Ctx) : Type → Set where
   EApp : ∀ {τ₁ τ₂} → Exp Γ (TFun τ₂ τ₁) → Exp Γ τ₂ → Exp Γ τ₁
 
 
-count_tl : ∀ {A  Γ Γ'} {τ : A } → τ ∈ Γ → Γ cx-≤ Γ' → τ ∈ Γ'
-count_tl  x (cxle-eq Γ) = x
-count_tl x  (cxle-lt T e) = tl (count_tl x e)
+
+elevate-var : ∀ {Γ Γ'} {τ : Type} → Γ ↝ Γ' → τ ∈ Γ → τ ∈ Γ'
+elevate-var refl τ∈Γ = τ∈Γ
+elevate-var (extend Γ↝Γ') τ∈Γ = tl (elevate-var Γ↝Γ' τ∈Γ)
 
 
 
-data _cx=≤_ {A : Set} : List A → List A → Set where
-  cxle-peq : ∀ {l₁ l₂} { x } → l₁ cx-≤ l₂ → (x ∷ l₁) cx=≤ (x ∷ l₂)
-  cxle-plt : ∀ {l₁ l₂} { x } → l₁ cx=≤ l₂ → (x ∷ l₁) cx=≤ (x ∷ l₂)
-
-count_tl' : ∀ {A  Γ Γ'} {τ : A } → τ ∈ Γ → Γ cx=≤ Γ' → τ ∈ Γ'
-count_tl' hd (cxle-plt e) = hd
-count_tl' hd (cxle-peq e) = hd
-count_tl' (tl xid) (cxle-plt e) = tl (count_tl' xid  e)
-count_tl' (tl xid) (cxle-peq e) = tl (count_tl xid e)
+elevate-var2 : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → τ ∈ Γ → τ ∈ Γ'' 
+elevate-var2 (refl x) x₁ = elevate-var x x₁
+elevate-var2 (extend Γ↝Γ'↝Γ'') hd = hd
+elevate-var2 (extend Γ↝Γ'↝Γ'') (tl x) = tl (elevate-var2 Γ↝Γ'↝Γ'' x)
 
 
+elevate : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → Exp Γ τ → Exp Γ'' τ
+elevate Γ↝Γ'↝Γ'' (EVar x) = EVar (elevate-var2 Γ↝Γ'↝Γ'' x)
+elevate Γ↝Γ'↝Γ'' (ECst x) = ECst x
+elevate Γ↝Γ'↝Γ'' (ELam e) = ELam (elevate (extend Γ↝Γ'↝Γ'') e)
+elevate Γ↝Γ'↝Γ'' (EApp e e₁) = EApp (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
 
-lem-Exp-weakening' : ∀ {τ₂ τ₁ Γ Γ'} → Exp (τ₂ ∷ Γ) τ₁ → (τ₂ ∷ Γ) cx=≤ (τ₂ ∷ Γ') → Exp (τ₂ ∷ Γ') τ₁
-lem-Exp-weakening' (EVar x) e = EVar (count_tl' x  e)
-lem-Exp-weakening'  (ECst n) e = ECst n
-lem-Exp-weakening'  (ELam t) e = ELam (lem-Exp-weakening' t (cxle-plt e))
-lem-Exp-weakening'  (EApp t1 t2) e = EApp (lem-Exp-weakening' t1 e) (lem-Exp-weakening' t2 e)   
 
-lem-Exp-weakening : ∀ {τ Γ Γ'} → Exp Γ τ → Γ cx-≤ Γ' → Exp Γ' τ
-lem-Exp-weakening t (cxle-eq Γ) = t
-lem-Exp-weakening (ECst n) e = ECst n
-lem-Exp-weakening (EVar x) e  = EVar (count_tl x e)
-lem-Exp-weakening (ELam t) (cxle-lt T e) = ELam (lem-Exp-weakening' t (cxle-peq (cxle-lt T e))) 
-lem-Exp-weakening (EApp t1 t2) e = EApp (lem-Exp-weakening t1 e) (lem-Exp-weakening t2 e)
+
+exp↑ : ∀ {τ τ' Γ} → Exp Γ τ' → Exp (τ ∷ Γ) τ'
+exp↑ e = elevate (refl (extend refl)) e
+
 
 
 -- typed annotated expressions
@@ -190,6 +222,8 @@ residual [] = []
 residual (Ann S _ ∷ xs) = residual xs
 residual (Ann D σ ∷ xs) = strip' σ ∷ residual xs
 
+
+
 -- ``semantic domain'' for partially evaluated AExp-terms:
 --   - AExp-terms of dynamic type evaluate to Exp-terms
 --   - AExp-terms of static type evaluate to agda terms, where SFun
@@ -201,15 +235,14 @@ mutual
   
   impTA' : Ctx → SType → Set
   impTA' Γ SNum = ℕ
-  impTA' Γ (SFun y y') = ∀ {Γ'} → Γ cx-≤ Γ' → impTA Γ' y → impTA Γ' y'
+  impTA' Γ (SFun y y') = ∀ {Γ'} → Γ ↝ Γ' → impTA Γ' y → impTA Γ' y'
 
-lem-impTA-weakening : ∀ {α Γ Γ'} →
-                      impTA Γ α →
-                      Γ cx-≤ Γ' →
-                      impTA Γ' α
-lem-impTA-weakening {Ann S SNum} v _ = v
-lem-impTA-weakening {Ann S (SFun x x₁)} f prf = λ prf' → f (lem-cx-≤-trans prf prf')
-lem-impTA-weakening {Ann D x₁} v prf = lem-Exp-weakening v prf 
+
+int↑ : ∀ { α Γ Γ'} → Γ ↝ Γ' → impTA Γ α → impTA Γ' α
+int↑ refl e = e
+int↑ {Ann S SNum} (extend Γ↝Γ') e = e
+int↑ {Ann S (SFun x x₁)} {Γ} {τ ∷ Γ'} (extend {.Γ} {.Γ'} {.τ} Γ↝Γ') e = λ Γ'↝Γ'' x₂ → e ((Γ↝Γ' ⊕ (τ ↝-∷ Γ')) ⊕ Γ'↝Γ'') x₂
+int↑ {Ann D x₁} {Γ} {τ ∷ Γ'} (extend {.Γ} {.Γ'} {.τ} Γ↝Γ') e = exp↑ (int↑ {Ann D x₁} Γ↝Γ' e)
 
 
 
@@ -226,17 +259,20 @@ data AEnv : Ctx → ACtx → Set where
            AEnv (strip' σ ∷ Γ) (Ann D σ ∷ Δ)
 
 
-lem-AEnv-weakening : ∀ {Γ Γ' Δ} → AEnv Γ Δ → Γ cx-≤ Γ' → AEnv Γ' Δ
-lem-AEnv-weakening env[] prf = env[]
-lem-AEnv-weakening (envS:: {α = α} x env) prf = envS:: (lem-impTA-weakening {α} x prf) (lem-AEnv-weakening env prf)
-lem-AEnv-weakening (envD:: {Γ} σ x env) prf = envS:: (lem-impTA-weakening {Ann D σ} x prf) (lem-AEnv-weakening env (lem-cx-≤-trans (cxle-lt (strip' σ) (cxle-eq Γ)) prf))  
 
-lookup : ∀ {Γ Δ α} → AEnv Γ Δ → (o : α ∈ Δ ) → impTA Γ α
-lookup env[] ()
-lookup (envS:: x env) hd = x
-lookup (envS:: x env) (tl idx) = lookup env idx
-lookup (envD:: σ x env) hd = x 
-lookup {α = α} (envD:: {Γ} σ x env) (tl idx) = lem-impTA-weakening {α} (lookup env idx) (strip' σ cxle-∷ Γ) 
+env↑ : ∀ { Δ Γ Γ'} → Γ ↝ Γ' → AEnv Γ Δ → AEnv Γ' Δ
+env↑ _ env[] = env[]
+env↑ Γ↝Γ' (envS:: {α = α} x env) = envS:: (int↑ {α} Γ↝Γ' x) (env↑ Γ↝Γ' env)
+env↑ Γ↝Γ' (envD:: {Γ} σ x env) = envS:: (int↑ {Ann D σ} Γ↝Γ' x) (env↑ ((strip' σ ↝-∷ Γ) ⊕ Γ↝Γ') env)
+
+
+
+lookup : ∀ {Γ Δ α} → α ∈ Δ → AEnv Γ Δ → impTA Γ α
+lookup () env[] 
+lookup hd (envS:: x env) = x
+lookup (tl idx) (envS:: x env) = lookup idx env 
+lookup hd (envD:: σ x env) = x 
+lookup {α = α} (tl idx) (envD:: {Γ} σ x env) = int↑ {α} ((strip' σ) ↝-∷ Γ) (lookup idx env)  
 
 data IsDynamic : AType → Set where
   is-dyn : ∀ σ → IsDynamic (Ann D σ)
@@ -245,25 +281,23 @@ lem-IsDynamic-by-wf : ∀ α → isTrue (D ≼ btof α) → IsDynamic α
 lem-IsDynamic-by-wf (Ann S σ) ()
 lem-IsDynamic-by-wf (Ann D σ) _ = is-dyn σ 
 
--- TODO: Do we need additional assurance in the type signature (or as
--- an aux. lemma) that Γ is the residue of Δ?
+
+
+
 pe : ∀ {Δ Γ α} → AEnv Γ Δ → AExp Δ α → impTA Γ α
-pe env (Var idx) = lookup env idx
+pe env (Var idx) = lookup idx env
 pe env (Cst S i) = i
 pe env (Cst D i) = ECst i
-pe {Γ = Γ} env (Lam {α₁} {α₂} S prf exp) = λ {Γ'} (prf₁ : Γ cx-≤ Γ') (v : impTA Γ' α₂) →
-                                                     pe (envS:: v (lem-AEnv-weakening env prf₁)) exp
+pe {Γ = Γ} env (Lam {α₁} {α₂} S prf exp) = λ {Γ'} (prf₁ : Γ ↝ Γ') (v : impTA Γ' α₂) →
+                                                     pe (envS:: v (env↑ prf₁ env)) exp
 pe env (Lam {α₁} {α₂} D (wf-fun _ _ prf-2 prf-1) e)
   with lem-IsDynamic-by-wf α₁ prf-1 | lem-IsDynamic-by-wf α₂ prf-2
 pe {Γ = Γ} env (Lam {.(Ann D σ₁)} {.(Ann D σ₂)} D (wf-fun _ _ prf-1 prf-2) e)
   | is-dyn σ₁ | is-dyn σ₂ =
   ELam (pe (envD:: σ₂ (EVar hd) env) e)
-pe {Γ = Γ} env (App S _ f e) = (pe env f (cxle-eq Γ)) (pe env e)
+pe {Γ = Γ} env (App S _ f e) = (pe env f (refl)) (pe env e)
 pe env (App {α₁} {α₂} D (wf-fun _ _ prf-2 prf-1) f e)
   with lem-IsDynamic-by-wf α₁ prf-1 | lem-IsDynamic-by-wf α₂ prf-2
 pe env (App {.(Ann D σ₁)}{.(Ann D σ₂)} D (wf-fun _ _ prf-2 prf-1) f e)
  | is-dyn σ₁ | is-dyn σ₂ =
  EApp (pe env f) (pe env e) 
-
-
-
