@@ -4,6 +4,7 @@ module BTA1 where
 open import Data.Nat
 open import Data.Bool
 open import Data.List
+open import Lib hiding (subst)
 
 -- Binding times
 data BT : Set where
@@ -129,12 +130,7 @@ mutual
 
 
 
--- More general purpose definitions (should also be in standard library)
--- list membership
-infix 4 _∈_
-data _∈_ {A : Set} : A → List A → Set where
-  hd : ∀ {x xs} → x ∈ (x ∷ xs)
-  tl : ∀ {x y xs} → x ∈ xs → x ∈ (y ∷ xs)
+
 
 
 -- Typing context
