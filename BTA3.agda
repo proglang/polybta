@@ -10,14 +10,10 @@ open import Data.List
 open import Data.Nat.Properties
 
 open import Relation.Nullary
+open import Lib
 
 
--- More general purpose definitions (should also be in standard library)
--- list membership
-infix 4 _∈_
-data _∈_ {A : Set} : A → List A → Set where
-  hd : ∀ {x xs} → x ∈ (x ∷ xs)
-  tl : ∀ {x y xs} → x ∈ xs → x ∈ (y ∷ xs)
+
 
 
 data Type : Set where
@@ -56,29 +52,22 @@ Ctx = List Type
 ≤-suc-left : ∀ {m n} → suc m ≤ n → m ≤ n
 ≤-suc-left (s≤s p) = ≤-suc-right p
 
-data _↝_ : Ctx → Ctx → Set where
-  ↝-refl   : ∀ {Γ}      → Γ ↝ Γ
-  ↝-extend : ∀ {Γ Γ' τ} → Γ ↝ Γ' → Γ ↝ (τ ∷ Γ')
 
-↝-≤ : ∀ Γ Γ' → Γ ↝ Γ' → length Γ ≤ length Γ'
-↝-≤ .Γ' Γ' ↝-refl = ≤-refl
-↝-≤ Γ .(τ ∷ Γ') (↝-extend {.Γ} {Γ'} {τ} Γ↝Γ') = ≤-suc-right (↝-≤ Γ Γ' Γ↝Γ')
+
+↝-≤ : ∀ (Γ Γ' : Ctx) → Γ ↝ Γ' → length Γ ≤ length Γ'
+↝-≤ .Γ' Γ' refl = ≤-refl
+↝-≤ Γ .(τ ∷ Γ') (extend {.Γ} {Γ'} {τ} Γ↝Γ') = ≤-suc-right (↝-≤ Γ Γ' Γ↝Γ')
 
 ↝-no-left : ∀ Γ τ → ¬ (τ ∷ Γ) ↝ Γ
 ↝-no-left Γ τ p = 1+n≰n (↝-≤ (τ ∷ Γ) Γ p)
 
-↝-trans : ∀ {Γ Γ' Γ''} → Γ ↝ Γ' → Γ' ↝ Γ'' → Γ ↝ Γ''
-↝-trans Γ↝Γ' ↝-refl = Γ↝Γ'
-↝-trans Γ↝Γ' (↝-extend Γ'↝Γ'') = ↝-extend (↝-trans Γ↝Γ' Γ'↝Γ'')
-
-lem : ∀ x y xs xs' → (x ∷ xs) ↝ xs' → xs ↝ (y ∷ xs')
-lem x y xs .(x ∷ xs) ↝-refl = ↝-extend (↝-extend ↝-refl)
-lem x y xs .(x' ∷ xs') (↝-extend {.(x ∷ xs)} {xs'} {x'} p) = ↝-extend (lem x x' xs xs' p)
 
 
-data _↝_↝_ : Ctx → Ctx → Ctx → Set where
-  ↝↝-base   : ∀ {Γ Γ''} → Γ ↝ Γ'' → Γ ↝ [] ↝ Γ''
-  ↝↝-extend : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → (τ ∷ Γ) ↝ (τ ∷ Γ') ↝ (τ ∷ Γ'')
+lem : ∀ {A : Set} (x y : A) (xs xs' : List A) → (x ∷ xs) ↝ xs' → xs ↝ (y ∷ xs')
+lem x y xs .(x ∷ xs) refl = extend (extend refl)
+lem x y xs .(x' ∷ xs') (extend {.(x ∷ xs)} {xs'} {x'} p) = extend (lem x x' xs xs' p)
+
+
 
 -- Typed residula expressions
 data Exp'' (Γ : Ctx) : Type → Set where
@@ -115,40 +104,40 @@ data AEnv2 : Ctx → ACtx → Set where
 
 
 
-elevate-var : ∀ {Γ Γ' τ} → Γ ↝ Γ' → τ ∈ Γ → τ ∈ Γ'
-elevate-var ↝-refl x = x
-elevate-var (↝-extend Γ↝Γ') x = tl (elevate-var Γ↝Γ' x)
+elevate-var : ∀ {Γ Γ' : Ctx} {τ : Type} → Γ ↝ Γ' → τ ∈ Γ → τ ∈ Γ'
+elevate-var refl x = x
+elevate-var (extend Γ↝Γ') x = tl (elevate-var Γ↝Γ' x)
 
 elevate-var2 : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → τ ∈ Γ → τ ∈ Γ''
-elevate-var2 (↝↝-base x) x₁ = elevate-var x x₁
-elevate-var2 (↝↝-extend Γ↝Γ'↝Γ'') hd = hd
-elevate-var2 (↝↝-extend Γ↝Γ'↝Γ'') (tl x) = tl (elevate-var2 Γ↝Γ'↝Γ'' x)
+elevate-var2 (refl x) x₁ = elevate-var x x₁
+elevate-var2 (extend Γ↝Γ'↝Γ'') hd = hd
+elevate-var2 (extend Γ↝Γ'↝Γ'') (tl x) = tl (elevate-var2 Γ↝Γ'↝Γ'' x)
 
 elevate : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → Exp'' Γ τ → Exp'' Γ'' τ
 elevate Γ↝Γ'↝Γ'' (EVar x) = EVar (elevate-var2 Γ↝Γ'↝Γ'' x)
 elevate Γ↝Γ'↝Γ'' (ECst x) = ECst x
 elevate Γ↝Γ'↝Γ'' (EAdd e e₁) = EAdd (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
-elevate Γ↝Γ'↝Γ'' (ELam e) = ELam (elevate (↝↝-extend Γ↝Γ'↝Γ'') e)
+elevate Γ↝Γ'↝Γ'' (ELam e) = ELam (elevate (extend Γ↝Γ'↝Γ'') e)
 elevate Γ↝Γ'↝Γ'' (EApp e e₁) = EApp (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
 
 lift2 : ∀ {Γ Γ'} α → Γ ↝ Γ' → Imp'' Γ α → Imp'' Γ' α 
 lift2 SNum p v = v
 lift2 (SFun x x₁) Γ↝Γ' v = λ Γ'↝Γ'' → v (↝-trans Γ↝Γ' Γ'↝Γ'')
-lift2 (D x₁) Γ↝Γ' v = elevate (↝↝-base Γ↝Γ') v
+lift2 (D x₁) Γ↝Γ' v = elevate (refl Γ↝Γ') v
 
 lookup2 : ∀ {α Δ Γ Γ'} → Γ ↝ Γ' → AEnv2 Γ Δ → α ∈ Δ → Imp'' Γ' α
 lookup2 Γ↝Γ' (consS p α v env) hd = lift2 α Γ↝Γ' v
 lookup2 Γ↝Γ' (consS p α₁ v env) (tl x) = lookup2 (↝-trans p Γ↝Γ') env x
 lookup2 Γ↝Γ' (consD α v env) hd = lift2 (D α) Γ↝Γ' v
-lookup2 ↝-refl (consD α₁ v env) (tl x) = lookup2 (↝-extend ↝-refl) env x
-lookup2 (↝-extend Γ↝Γ') (consD α₁ v env) (tl x) = lookup2 (lem α₁ _ _ _ Γ↝Γ') env x
+lookup2 refl (consD α₁ v env) (tl x) = lookup2 (extend refl) env x
+lookup2 (extend Γ↝Γ') (consD α₁ v env) (tl x) = lookup2 (lem α₁ _ _ _ Γ↝Γ') env x
 
 pe2 : ∀ {α Δ Γ} → AExp Δ α → AEnv2 Γ Δ → Imp'' Γ α
-pe2 (Var x) env = lookup2 ↝-refl env x
+pe2 (Var x) env = lookup2 refl env x
 pe2 (SCst x) env = x
 pe2 (SAdd e₁ e₂) env = pe2 e₁ env + pe2 e₂ env
 pe2 {SFun α₂ α₁} (SLam e) env = λ Γ↝Γ' → λ y → pe2 e (consS Γ↝Γ' α₂ y env)
-pe2 (SApp e₁ e₂) env = ((pe2 e₁ env) ↝-refl) (pe2 e₂ env)
+pe2 (SApp e₁ e₂) env = ((pe2 e₁ env) refl) (pe2 e₂ env)
 pe2 (DCst x) env = ECst x
 pe2 (DAdd e e₁) env = EAdd (pe2 e env) (pe2 e₁ env)
 pe2 {D (Fun σ₁ σ₂)} (DLam e) env = ELam (pe2 e (consD σ₁ (EVar hd) env))
