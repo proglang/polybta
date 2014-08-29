@@ -4,7 +4,7 @@ module BTA1 where
 open import Data.Nat
 open import Data.Bool
 open import Data.List
-open import Lib hiding (subst)
+open import Lib 
 
 -- Binding times
 data BT : Set where
@@ -20,10 +20,6 @@ _≼_ _ _  = true
 -- Standard propositional equality, see also Relation.Binary.PropositionalEquality
 data _==_ {A : Set} (x : A) : A → Set where
   refl : x == x
-
--- subst lemma
-subst : {A B : Set}{x x' : A} {C : A → B} → x == x' → C x == C x'
-subst{A}{B}{x}{.x} refl = refl
 
 
 record True : Set where
