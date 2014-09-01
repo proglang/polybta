@@ -68,10 +68,17 @@ int↑ {Ann S SNum} (extend Γ↝Γ') e = e
 int↑ {Ann S (SFun x x₁)} {Γ} {τ ∷ Γ'} (extend {.Γ} {.Γ'} {.τ} Γ↝Γ') e = λ Γ'↝Γ'' x₂ → e ((Γ↝Γ' ⊕ (τ ↝-∷ Γ')) ⊕ Γ'↝Γ'') x₂
 int↑ {Ann D x₁} {Γ} {τ ∷ Γ'} (extend {.Γ} {.Γ'} {.τ} Γ↝Γ') e = exp↑ (int↑ {Ann D x₁} Γ↝Γ' e)
 
------------------------------------------------------------
+------------------------------------------------------------
 --[AEnv] as the environment storing the "target values"
 --of all free variable occurrences in the source expression.
------------------------------------------------------------ 
+--Note,
+--a)it is not necessary to have two constructors [envS] and 
+--  [envD] for static and dynamic values respectively. For they
+--  have different type annotations;
+--b)in [BTA2.agda] the environment is simplified by having just
+--  one constructor [env::] for all target values.
+------------------------------------------------------------ 
+
 data AEnv : Ctx → ACtx → Set where
   env[] :  ∀ {Γ} → AEnv Γ []
   envS:: : ∀ {Γ Δ} {α} →
