@@ -208,7 +208,7 @@ pe' m (App {.(Ann D σ₂)} {.(Ann D σ₁)} D (wf-fun w₁ w₂ d≤bt₁ d≤b
 --module "SimpAenv" 
 --note:
 --[AEnv'] is simplified 
---by combining [consS] and [consD].
+--by combining [envS] and [envD].
 -----------------------------------
 module SimpAenv where
   data AEnv'' : ℕ → ACtx → Set where
