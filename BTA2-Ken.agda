@@ -97,7 +97,7 @@ open Lemmas≡&≤ public
 
 
 -------------------------------------------
---module: "Weakening-Ken"
+--module "Weakening-Ken"
 --note:suppose [EVar m : Exp' n]
 --     a)EVar m : Exp' n' ∀ n' ≥ n;
 --     b)EVar (suc m) : Exp' (suc n);
