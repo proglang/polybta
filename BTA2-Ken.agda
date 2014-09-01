@@ -167,8 +167,8 @@ int↑' {m} {n} (Ann D σ) p v = exp↑≡∸ p (exp↑' m (n ∸ m) v)
 ------------------------------------------------------------------
 data AEnv' : ℕ → ACtx → Set where
   [] : AEnv' 0 []
-  consS : ∀ {m Δ o} → m ≤ o → (α : AType) → ATInt' o α → AEnv' m Δ → AEnv' o (α ∷ Δ)
-  consD : ∀ {m Δ} → (α : AType) → isTrue (D ≼ btof α) → ATInt' (suc m) α → AEnv' m Δ → AEnv' (suc m) (α ∷ Δ)
+  envS : ∀ {m Δ o} → m ≤ o → (α : AType) → ATInt' o α → AEnv' m Δ → AEnv' o (α ∷ Δ)
+  envD : ∀ {m Δ} → (α : AType) → isTrue (D ≼ btof α) → ATInt' (suc m) α → AEnv' m Δ → AEnv' (suc m) (α ∷ Δ)
 
 
 -----------------------------------------------------------------------
@@ -176,10 +176,10 @@ data AEnv' : ℕ → ACtx → Set where
 --a given free variable in the source expression.
 -----------------------------------------------------------------------
 lookup' : ∀ {α Δ m n} → m  ≤ n → AEnv' m Δ → α ∈ Δ → ATInt' n α
-lookup' {α} p (consS _ .α x env) hd = int↑' α p x
-lookup' {α} p (consD .α x x₁ env) hd = int↑' α p x₁
-lookup' p (consS p' .y x env) (tl {_} {y} x₁) = lookup' (≤-trans p' p) env x₁
-lookup' p (consD .y x x₁ env) (tl {_} {y} x₂) = lookup' (≤-suc-left p) env x₂
+lookup' {α} p (envS _ .α x env) hd = int↑' α p x
+lookup' {α} p (envD .α x x₁ env) hd = int↑' α p x₁
+lookup' p (envS p' .y x env) (tl {_} {y} x₁) = lookup' (≤-trans p' p) env x₁
+lookup' p (envD .y x x₁ env) (tl {_} {y} x₂) = lookup' (≤-suc-left p) env x₂
 
 
 ------------------------------------------------------------------------
@@ -193,11 +193,11 @@ pe' : ∀ {α Δ} m → AExp Δ α → AEnv' m Δ → ATInt' m α
 pe' m (Var x) env = lookup' ≤-refl env x
 pe' m (Cst S x) env = x
 pe' m (Cst D x) env = ECst x
-pe' m (Lam S x e) env = λ o p → λ v → pe' o e (consS p _ v env)
+pe' m (Lam S x e) env = λ o p → λ v → pe' o e (envS p _ v env)
 pe' m (Lam {α₂} {α₁} D (wf-fun w₁ w₂ d≤bt₁ d≤bt₂) e) env 
   with lem-IsDynamic-by-wf α₁ d≤bt₁ | lem-IsDynamic-by-wf α₂ d≤bt₂ 
 pe' m (Lam {.(Ann D σ₂)} {.(Ann D σ₁)} D (wf-fun _ _ d≤bt₁ d≤bt₂) e) env
-  | is-dyn σ₁ | is-dyn σ₂ = ELam (pe' (suc m) e (consD (Ann D σ₁) d≤bt₁ (EVar zero) env))
+  | is-dyn σ₁ | is-dyn σ₂ = ELam (pe' (suc m) e (envD (Ann D σ₁) d≤bt₁ (EVar zero) env))
 pe' m (App S x e e₁) env = (pe' m e env) m ≤-refl (pe' m e₁ env)
 pe' m (App {α₂} {α₁} D (wf-fun w₁ w₂ d≤bt₁ d≤bt₂) e e₁) env 
   with lem-IsDynamic-by-wf α₁ d≤bt₁ | lem-IsDynamic-by-wf α₂ d≤bt₂ 
@@ -213,21 +213,21 @@ pe' m (App {.(Ann D σ₂)} {.(Ann D σ₁)} D (wf-fun w₁ w₂ d≤bt₁ d≤b
 module SimpAenv where
   data AEnv'' : ℕ → ACtx → Set where
     [] : AEnv'' 0 []
-    cons : ∀ {m Δ o} → m ≤ o → (α : AType) → ATInt' o α → AEnv'' m Δ → AEnv'' o (α ∷ Δ)
+    _∷_ : ∀ {m Δ o} → m ≤ o → (α : AType) → ATInt' o α → AEnv'' m Δ → AEnv'' o (α ∷ Δ)
 
   lookup'' : ∀ {α Δ m n} → m  ≤ n → AEnv'' m Δ → α ∈ Δ → ATInt' n α
-  lookup'' {α} p (cons _ .α x env) hd = int↑' α p x
-  lookup'' p (cons p' .y x env) (tl {_} {y} x₁) = lookup'' (≤-trans p' p) env x₁
+  lookup'' {α} p (_∷_ _ .α x env) hd = int↑' α p x
+  lookup'' p (_∷_ p' .y x env) (tl {_} {y} x₁) = lookup'' (≤-trans p' p) env x₁
 
   pe'' : ∀ {α Δ} m → AExp Δ α → AEnv'' m Δ → ATInt' m α
   pe'' m (Var x) env = lookup'' ≤-refl env x
   pe'' m (Cst S x) env = x
   pe'' m (Cst D x) env = ECst x
-  pe'' m (Lam S x e) env = λ o p → λ v → pe'' o e (cons p _ v env)
+  pe'' m (Lam S x e) env = λ o p → λ v → pe'' o e (_∷_ p _ v env)
   pe'' m (Lam {α₂} {α₁} D (wf-fun w₁ w₂ d≤bt₁ d≤bt₂) e) env 
     with lem-IsDynamic-by-wf α₁ d≤bt₁ | lem-IsDynamic-by-wf α₂ d≤bt₂ 
   pe'' m (Lam {.(Ann D σ₂)} {.(Ann D σ₁)} D (wf-fun _ _ d≤bt₁ d≤bt₂) e) env
-    | is-dyn σ₁ | is-dyn σ₂ = ELam (pe'' (suc m) e (cons  (≤-suc-right ≤-refl)  _ (EVar zero) env))
+    | is-dyn σ₁ | is-dyn σ₂ = ELam (pe'' (suc m) e (_∷_  (≤-suc-right ≤-refl)  _ (EVar zero) env))
   pe'' m (App S x e e₁) env = (pe'' m e env) m ≤-refl (pe'' m e₁ env)
   pe'' m (App {α₂} {α₁} D (wf-fun w₁ w₂ d≤bt₁ d≤bt₂) e e₁) env 
     with lem-IsDynamic-by-wf α₁ d≤bt₁ | lem-IsDynamic-by-wf α₂ d≤bt₂ 
