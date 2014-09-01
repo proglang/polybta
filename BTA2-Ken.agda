@@ -1,194 +1,235 @@
---an alternative way of specifying the environment [AEnv]
+----------------------
+--Author: Kenichi Asai
+----------------------
+----------------------------------------------------
+--an alternative way of specifying the base-language
+--note:
+--a)the base-language [Exp'] is specified as untyped 
+--  while all variable occurrences are within scope,
+--  e.g.  EVar (suc zero) : Exp' n            where
+--        1)"untyped" in a sense that [Exp'] does not 
+--          take base-type [Type] as its argument;
+--        2)"in scope" in a sense that the "scope" 
+--          argument [n] is always strictly greater
+--          that "De Bruijn" index of the variable;
+--        3)one instance of abstraction,
+--          λ x → λ y → x as
+--          ELam (ELam (EVar (suc zero))) ;
+--        4)the λ-binder "lifts" the "typing scope" 
+--          from [Exp n] to [Exp (1 + n)].
+----------------------------------------------------
+
 module BTA2-Ken where
-
-open import Data.Nat hiding (_<_)
-open import Data.Bool
 open import Data.Fin hiding (_≤_ ; pred; _+_)
-open import Data.List
-open import Data.Product
+open import Lib 
+open TwoLevelTerms 
+open TwoLevelTypes
+open Auxiliaries
 
-open import Function
-open import Algebra.FunctionProperties using (Commutative; Identity; RightIdentity)
-open import Relation.Binary.PropositionalEquality as PropEq
-  using (_≡_; _≢_; refl; sym; cong; cong₂)
-open PropEq.≡-Reasoning
-open import Data.Nat.Properties
-open import Lib
-
--- Binding times
-data BT : Set where
-  S : BT
-  D : BT
-
--- defining a data type [BT],where two members are
--- [S] standing for "static" and [D] standing for dynamic.
-
--- ``subsumption'' binding times; static can be treated as dynamic,
--- but not vice versa
-_≼_ : BT → BT → Bool
-_≼_ D S  = false
-_≼_ _ _  = true
-
-record True : Set where
-data False : Set where
-
-isTrue : Bool → Set
-isTrue true  = True
-isTrue false = False
-
-
-
-
--- Types of the calculus
-mutual
-  -- s ^ BT
-  data AType : Set where
-    Ann : BT → SType → AType
-
-  -- int | t -> t
-  data SType : Set where
-    SNum  : SType
-    SFun  : AType → AType → SType
-
--- aux definitions
-ATInt : BT → AType
-ATInt bt = Ann bt SNum
-ATFun  : BT → AType → AType → AType
-ATFun  bt at1 at2 = Ann bt (SFun at1 at2)
-
--- projection: get the BT from a type
-btof : AType → BT
-btof (Ann bt _) = bt
-
--- well-formedness
-data wft : AType → Set where
-  wf-int  : ∀ {bt} → wft (Ann bt SNum)
-  wf-fun  : ∀ {bt at1 at2} → wft at1 → wft at2
-          → isTrue (bt ≼ btof at1) → isTrue (bt ≼ btof at2) → wft (Ann bt (SFun at1 at2))
-
--- test for dynamic by wellformedness
-data IsDynamic : AType → Set where
-  is-dyn : ∀ σ → IsDynamic (Ann D σ)
-
-lem-IsDynamic-by-wf : ∀ α → isTrue (D ≼ btof α) → IsDynamic α
-lem-IsDynamic-by-wf (Ann S σ) ()
-lem-IsDynamic-by-wf (Ann D σ) _ = is-dyn σ 
-
--- typed annotated expressions
-ACtx = List AType
-
-data AExp (Δ : ACtx) : AType → Set where
-  Var : ∀ {α} → α ∈ Δ → AExp Δ α
-  Cst : (bt : BT) → ℕ → AExp Δ (ATInt bt)
-  Lam : ∀ {α₁ α₂} (bt : BT) → wft (ATFun bt α₂ α₁) → AExp (α₂ ∷ Δ) α₁ → AExp Δ (ATFun bt α₂ α₁)
-  App : ∀ {α₁ α₂} (bt : BT) → wft (ATFun bt α₂ α₁) → AExp Δ (ATFun bt α₂ α₁) → AExp Δ α₂ → AExp Δ α₁
-
-
--- Untyped expression, but correctly scoped
+------------------------------------------
+--base-language [Exp']:
+--a)untyped;
+--b)all variable occurrences are in scope.
+------------------------------------------
 data Exp' : ℕ → Set where
   EVar : ∀ {n} → Fin n → Exp' n
   ECst : ∀ {n} → ℕ → Exp' n
   ELam : ∀ {n} → Exp' (suc n) → Exp' n
   EApp : ∀ {n} → Exp' n → Exp' n → Exp' n
 
----
 
-m+1+n≡1+m+n : ∀ m n → m + suc n ≡ suc (m + n)
-m+1+n≡1+m+n zero    n = refl
-m+1+n≡1+m+n (suc m) n = cong suc (m+1+n≡1+m+n m n)
+---------------------------------------
+--module "Lemmas≡&≤"
+--note:
+--a)some lemmas regarding equalities
+--  of additions;
+--b)some lemmas regarding [≤] relation.
+---------------------------------------
+module Lemmas≡&≤ where 
+  open import Data.Nat hiding (_<_)
+  open import Data.Bool 
+  open import Data.List 
+  open import Data.Product 
+  open import Function 
+  open import Algebra.FunctionProperties using (Commutative; Identity; RightIdentity)
+  open import Relation.Binary.PropositionalEquality as PropEq
+       using (_≡_; _≢_; refl; sym; cong; cong₂)
+  open PropEq.≡-Reasoning 
+  open import Data.Nat.Properties public 
+  
+  m+1+n≡1+m+n : ∀ m n → m + suc n ≡ suc (m + n)
+  m+1+n≡1+m+n zero    n = refl
+  m+1+n≡1+m+n (suc m) n = cong suc (m+1+n≡1+m+n m n)
 
-n+0≡n : ∀ n → n + 0 ≡ n
-n+0≡n zero    = refl
-n+0≡n (suc n) = cong suc $ n+0≡n n
+  n+0≡n : ∀ n → n + 0 ≡ n
+  n+0≡n zero    = refl
+  n+0≡n (suc n) = cong suc $ n+0≡n n
 
-+-comm : ∀ m n → m + n ≡ n + m
-+-comm zero    n = sym (n+0≡n n)
-+-comm (suc m) n =
-  begin
-    suc m + n
-  ≡⟨ refl ⟩
-    suc (m + n)
-  ≡⟨ cong suc (+-comm m n) ⟩
-    suc (n + m)
-  ≡⟨ sym (m+1+n≡1+m+n n m) ⟩
-    n + suc m
-  ∎
+  +-comm : ∀ m n → m + n ≡ n + m
+  +-comm zero    n = sym (n+0≡n n)
+  +-comm (suc m) n =
+    begin
+      suc m + n
+    ≡⟨ refl ⟩
+      suc (m + n)
+    ≡⟨ cong suc (+-comm m n) ⟩
+      suc (n + m)
+    ≡⟨ sym (m+1+n≡1+m+n n m) ⟩
+      n + suc m
+    ∎
 
-≤-refl : ∀ {n} → n ≤ n
-≤-refl {zero} = z≤n
-≤-refl {suc n} = s≤s ≤-refl
+  ≤-refl : ∀ {n} → n ≤ n
+  ≤-refl {zero} = z≤n
+  ≤-refl {suc n} = s≤s ≤-refl
 
-≤-trans : ∀ {a b c} → a ≤ b → b ≤ c → a ≤ c
-≤-trans z≤n q = z≤n
-≤-trans (s≤s p) (s≤s q) = s≤s (≤-trans p q)
+  ≤-trans : ∀ {a b c} → a ≤ b → b ≤ c → a ≤ c
+  ≤-trans z≤n q = z≤n
+  ≤-trans (s≤s p) (s≤s q) = s≤s (≤-trans p q)
 
-≤-suc-right : ∀ {m n} → m ≤ n → m ≤ suc n
-≤-suc-right z≤n = z≤n
-≤-suc-right (s≤s p) = s≤s (≤-suc-right p)
+  ≤-suc-right : ∀ {m n} → m ≤ n → m ≤ suc n
+  ≤-suc-right z≤n = z≤n
+  ≤-suc-right (s≤s p) = s≤s (≤-suc-right p)
 
-≤-suc-left : ∀ {m n} → suc m ≤ n → m ≤ n
-≤-suc-left (s≤s p) = ≤-suc-right p
+  ≤-suc-left : ∀ {m n} → suc m ≤ n → m ≤ n
+  ≤-suc-left (s≤s p) = ≤-suc-right p
 
-xlate : ∀ {m} {n} → Exp' (m + suc n) → Exp' (suc (n + m))
-xlate {m} {n} e rewrite m+1+n≡1+m+n m n | +-comm m n = e
-
-shifter1 : ∀ {n} m → Exp' (suc n) → Exp' (suc (n + m))
-shifter1 {n} m (EVar x) = xlate {m} (EVar (raise m x)) 
-shifter1 m (ECst x) = ECst x
-shifter1 m (ELam e) = ELam (shifter1 m e)
-shifter1 m (EApp e e₁) = EApp (shifter1 m e) (shifter1 m e₁)
-
-shifter0 : ∀ m → Exp' zero → Exp' m
-shifter0 m (EVar ())
-shifter0 m (ECst x) = ECst x
-shifter0 m (ELam e) = ELam (shifter1 m e)
-shifter0 m (EApp e e₁) = EApp (shifter0 m e) (shifter0 m e₁)
-
-shifter : ∀ m d → Exp' m → Exp' (m + d)
-shifter zero d e = shifter0 d e
-shifter (suc m) d e = shifter1 d e
-
--- m+n∸m≡n : ∀ {m n} → m ≤ n → m + (n ∸ m) ≡ n
--- m+n∸m≡n p
-
-helper : ∀ {m n} → n ≤ m → Exp' (n + (m ∸ n)) → Exp' m
-helper p e rewrite m+n∸m≡n p = e
+open Lemmas≡&≤ public
 
 
--- index m = nesting level of dynamic definitions
-Imp : (m : ℕ) → AType → Set
-Imp m (Ann S SNum) = ℕ
-Imp m (Ann S (SFun α₁ α₂)) = ∀ n → m ≤ n → (Imp n α₁ → Imp n α₂)
-Imp m (Ann D σ) = Exp' m
+-------------------------------------------
+--module: "Weakening-Ken"
+--note:suppose [EVar m : Exp' n]
+--     a)EVar m : Exp' n' ∀ n' ≥ n;
+--     b)EVar (suc m) : Exp' (suc n);
+--     c)EVar (raise n' m) : Exp' (n + n');
+--     d)"weaking" can be interpreted as 
+--       "whenever the scope is expanded the 
+--       indeices of all (free) variable 
+--       occurrences have to be lifted by a 
+--       corresponding amount";
+--     e)e.g.,
+--       [EVar zero : Exp' 1] to 
+--       [EVar (suc zero) : Exp' 2]. 
+-------------------------------------------
+module Weakening-Ken where
+ 
+  exp↑≡suc : ∀ {m} {n} → Exp' (m + suc n) → Exp' (suc (n + m))
+  exp↑≡suc {m} {n} e rewrite m+1+n≡1+m+n m n | +-comm m n = e
 
--- index = nesting level of dynamic definitions
-data AEnv1 : ℕ → ACtx → Set where
-  [] : AEnv1 0 []
-  consS : ∀ {m Δ o} → m ≤ o → (α : AType) → Imp o α → AEnv1 m Δ → AEnv1 o (α ∷ Δ)
-  consD : ∀ {m Δ} → (α : AType) → isTrue (D ≼ btof α) → Imp (suc m) α → AEnv1 m Δ → AEnv1 (suc m) (α ∷ Δ)
+  exp↑m : ∀ {n} m → Exp' (suc n) → Exp' (suc (n + m))
+  exp↑m {n} m (EVar x) = exp↑≡suc {m} (EVar (raise m x)) 
+  exp↑m m (ECst x) = ECst x
+  exp↑m m (ELam e) = ELam (exp↑m m e)
+  exp↑m m (EApp e e₁) = EApp (exp↑m m e) (exp↑m m e₁)
 
-lift1 : ∀ {m n} α → m ≤ n → Imp m α → Imp n α 
-lift1 (Ann S SNum) p v = v
-lift1 (Ann S (SFun x x₁)) p v = λ k n≤k → v k (≤-trans p n≤k)
-lift1 {m} {n} (Ann D σ) p v = helper p (shifter m (n ∸ m) v)
+  exp0↑m : ∀ m → Exp' zero → Exp' m
+  exp0↑m m (EVar ())
+  exp0↑m m (ECst x) = ECst x
+  exp0↑m m (ELam e) = ELam (exp↑m m e)
+  exp0↑m m (EApp e e₁) = EApp (exp0↑m m e) (exp0↑m m e₁)
 
-lookup1 : ∀ {α Δ m n} → m  ≤ n → AEnv1 m Δ → α ∈ Δ → Imp n α
-lookup1 {α} p (consS _ .α x env) hd = lift1 α p x
-lookup1 {α} p (consD .α x x₁ env) hd = lift1 α p x₁
-lookup1 p (consS p' .y x env) (tl {_} {y} x₁) = lookup1 (≤-trans p' p) env x₁
-lookup1 p (consD .y x x₁ env) (tl {_} {y} x₂) = lookup1 (≤-suc-left p) env x₂
+  exp↑' : ∀ m d → Exp' m → Exp' (m + d)
+  exp↑' zero d e = exp0↑m d e
+  exp↑' (suc m) d e = exp↑m d e
 
-pe1 : ∀ {α Δ} m → AExp Δ α → AEnv1 m Δ → Imp m α
-pe1 m (Var x) env = lookup1 ≤-refl env x
-pe1 m (Cst S x) env = x
-pe1 m (Cst D x) env = ECst x
-pe1 m (Lam S x e) env = λ o p → λ v → pe1 o e (consS p _ v env)
-pe1 m (Lam {α₂} {α₁} D (wf-fun w₁ w₂ d≤bt₁ d≤bt₂) e) env 
+
+  exp↑≡∸ : ∀ {m n} → n ≤ m → Exp' (n + (m ∸ n)) → Exp' m
+  exp↑≡∸ p e rewrite m+n∸m≡n p = e
+
+open Weakening-Ken public
+
+
+------------------------------------------------------------------
+--[ATInt'] generates
+--a)the untyped base-language [Exp'] if the input type is dynamic;
+--b)the Agda types [ℕ] and [→] if the input type is static.
+------------------------------------------------------------------
+ATInt' : (m : ℕ) → AType → Set
+ATInt' m (Ann S SNum) = ℕ
+ATInt' m (Ann S (SFun α₁ α₂)) = ∀ n → m ≤ n → (ATInt' n α₁ → ATInt' n α₂)
+ATInt' m (Ann D σ) = Exp' m
+
+-----------------------------------------------------------
+--[int↑'] weakens the typing scope [m] of the target term.
+-----------------------------------------------------------
+int↑' : ∀ {m n} α → m ≤ n → ATInt' m α → ATInt' n α 
+int↑' (Ann S SNum) p v = v
+int↑' (Ann S (SFun x x₁)) p v = λ k n≤k → v k (≤-trans p n≤k)
+int↑' {m} {n} (Ann D σ) p v = exp↑≡∸ p (exp↑' m (n ∸ m) v)
+
+------------------------------------------------------------------
+--[AEnv'] as the environment storing the "target values"
+--of all free variable occurrences in the source expression.
+--note:
+--a)it is not necessary to have two constructors one for dynamic
+--  values and one for static values;
+--b)for target values are distinguished by their type annotations. 
+------------------------------------------------------------------
+data AEnv' : ℕ → ACtx → Set where
+  [] : AEnv' 0 []
+  consS : ∀ {m Δ o} → m ≤ o → (α : AType) → ATInt' o α → AEnv' m Δ → AEnv' o (α ∷ Δ)
+  consD : ∀ {m Δ} → (α : AType) → isTrue (D ≼ btof α) → ATInt' (suc m) α → AEnv' m Δ → AEnv' (suc m) (α ∷ Δ)
+
+
+-----------------------------------------------------------------------
+--[lookup'] get from the environment the corresponding "target value" of 
+--a given free variable in the source expression.
+-----------------------------------------------------------------------
+lookup' : ∀ {α Δ m n} → m  ≤ n → AEnv' m Δ → α ∈ Δ → ATInt' n α
+lookup' {α} p (consS _ .α x env) hd = int↑' α p x
+lookup' {α} p (consD .α x x₁ env) hd = int↑' α p x₁
+lookup' p (consS p' .y x env) (tl {_} {y} x₁) = lookup' (≤-trans p' p) env x₁
+lookup' p (consD .y x x₁ env) (tl {_} {y} x₂) = lookup' (≤-suc-left p) env x₂
+
+
+------------------------------------------------------------------------
+--[pe'] upon receiving a two-level expression [AExp] and an environment
+--gives back the corresponding partially evaluated result where all 
+--static parts of the expression are computed over their meta-level(Agda)
+--projections while the static parts being merely translated to the base
+--language [Exp']
+------------------------------------------------------------------------
+pe' : ∀ {α Δ} m → AExp Δ α → AEnv' m Δ → ATInt' m α
+pe' m (Var x) env = lookup' ≤-refl env x
+pe' m (Cst S x) env = x
+pe' m (Cst D x) env = ECst x
+pe' m (Lam S x e) env = λ o p → λ v → pe' o e (consS p _ v env)
+pe' m (Lam {α₂} {α₁} D (wf-fun w₁ w₂ d≤bt₁ d≤bt₂) e) env 
   with lem-IsDynamic-by-wf α₁ d≤bt₁ | lem-IsDynamic-by-wf α₂ d≤bt₂ 
-pe1 m (Lam {.(Ann D σ₂)} {.(Ann D σ₁)} D (wf-fun _ _ d≤bt₁ d≤bt₂) e) env
-  | is-dyn σ₁ | is-dyn σ₂ = ELam (pe1 (suc m) e (consD (Ann D σ₁) d≤bt₁ (EVar zero) env))
-pe1 m (App S x e e₁) env = (pe1 m e env) m ≤-refl (pe1 m e₁ env)
-pe1 m (App {α₂} {α₁} D (wf-fun w₁ w₂ d≤bt₁ d≤bt₂) e e₁) env 
+pe' m (Lam {.(Ann D σ₂)} {.(Ann D σ₁)} D (wf-fun _ _ d≤bt₁ d≤bt₂) e) env
+  | is-dyn σ₁ | is-dyn σ₂ = ELam (pe' (suc m) e (consD (Ann D σ₁) d≤bt₁ (EVar zero) env))
+pe' m (App S x e e₁) env = (pe' m e env) m ≤-refl (pe' m e₁ env)
+pe' m (App {α₂} {α₁} D (wf-fun w₁ w₂ d≤bt₁ d≤bt₂) e e₁) env 
   with lem-IsDynamic-by-wf α₁ d≤bt₁ | lem-IsDynamic-by-wf α₂ d≤bt₂ 
-pe1 m (App {.(Ann D σ₂)} {.(Ann D σ₁)} D (wf-fun w₁ w₂ d≤bt₁ d≤bt₂) e e₁) env
-  | is-dyn σ₁ | is-dyn σ₂ = EApp (pe1 m e env) (pe1 m e₁ env)
+pe' m (App {.(Ann D σ₂)} {.(Ann D σ₁)} D (wf-fun w₁ w₂ d≤bt₁ d≤bt₂) e e₁) env
+  | is-dyn σ₁ | is-dyn σ₂ = EApp (pe' m e env) (pe' m e₁ env)
+
+-----------------------------------
+--module "SimpAenv" 
+--note:
+--[AEnv'] is simplified 
+--by combining [consS] and [consD].
+-----------------------------------
+module SimpAenv where
+  data AEnv'' : ℕ → ACtx → Set where
+    [] : AEnv'' 0 []
+    cons : ∀ {m Δ o} → m ≤ o → (α : AType) → ATInt' o α → AEnv'' m Δ → AEnv'' o (α ∷ Δ)
+
+  lookup'' : ∀ {α Δ m n} → m  ≤ n → AEnv'' m Δ → α ∈ Δ → ATInt' n α
+  lookup'' {α} p (cons _ .α x env) hd = int↑' α p x
+  lookup'' p (cons p' .y x env) (tl {_} {y} x₁) = lookup'' (≤-trans p' p) env x₁
+
+  pe'' : ∀ {α Δ} m → AExp Δ α → AEnv'' m Δ → ATInt' m α
+  pe'' m (Var x) env = lookup'' ≤-refl env x
+  pe'' m (Cst S x) env = x
+  pe'' m (Cst D x) env = ECst x
+  pe'' m (Lam S x e) env = λ o p → λ v → pe'' o e (cons p _ v env)
+  pe'' m (Lam {α₂} {α₁} D (wf-fun w₁ w₂ d≤bt₁ d≤bt₂) e) env 
+    with lem-IsDynamic-by-wf α₁ d≤bt₁ | lem-IsDynamic-by-wf α₂ d≤bt₂ 
+  pe'' m (Lam {.(Ann D σ₂)} {.(Ann D σ₁)} D (wf-fun _ _ d≤bt₁ d≤bt₂) e) env
+    | is-dyn σ₁ | is-dyn σ₂ = ELam (pe'' (suc m) e (cons  (≤-suc-right ≤-refl)  _ (EVar zero) env))
+  pe'' m (App S x e e₁) env = (pe'' m e env) m ≤-refl (pe'' m e₁ env)
+  pe'' m (App {α₂} {α₁} D (wf-fun w₁ w₂ d≤bt₁ d≤bt₂) e e₁) env 
+    with lem-IsDynamic-by-wf α₁ d≤bt₁ | lem-IsDynamic-by-wf α₂ d≤bt₂ 
+  pe'' m (App {.(Ann D σ₂)} {.(Ann D σ₁)} D (wf-fun w₁ w₂ d≤bt₁ d≤bt₂) e e₁) env
+    | is-dyn σ₁ | is-dyn σ₂ = EApp (pe'' m e env) (pe'' m e₁ env)
