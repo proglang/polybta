@@ -80,7 +80,7 @@ int↑ {Ann D x₁} {Γ} {τ ∷ Γ'} (extend {.Γ} {.Γ'} {.τ} Γ↝Γ') e = e
 ------------------------------------------------------------ 
 
 data AEnv : Ctx → ACtx → Set where
-  env[] :  ∀ {Γ} → AEnv Γ []
+  [] :  ∀ {Γ} → AEnv Γ []
   envS:: : ∀ {Γ Δ} {α} →
            ATInt Γ α → 
            AEnv Γ Δ →
@@ -94,7 +94,7 @@ data AEnv : Ctx → ACtx → Set where
 --[env↑] weakens the typing context [Γ] of the environment
 ----------------------------------------------------------
 env↑ : ∀ { Δ Γ Γ'} → Γ ↝ Γ' → AEnv Γ Δ → AEnv Γ' Δ
-env↑ _ env[] = env[]
+env↑ _ [] = []
 env↑ Γ↝Γ' (envS:: {α = α} x env) = envS:: (int↑ {α} Γ↝Γ' x) (env↑ Γ↝Γ' env)
 env↑ Γ↝Γ' (envD:: {Γ} σ x env) = envS:: (int↑ {Ann D σ} Γ↝Γ' x) (env↑ ((strip' σ ↝-∷ Γ) ⊕ Γ↝Γ') env)
 
@@ -104,7 +104,7 @@ env↑ Γ↝Γ' (envD:: {Γ} σ x env) = envS:: (int↑ {Ann D σ} Γ↝Γ' x) (
 --a given free variable in the source expression.
 -----------------------------------------------------------------------
 lookup : ∀ {Γ Δ α} → α ∈ Δ → AEnv Γ Δ → ATInt Γ α
-lookup () env[] 
+lookup () [] 
 lookup hd (envS:: x env) = x
 lookup (tl idx) (envS:: x env) = lookup idx env 
 lookup hd (envD:: σ x env) = x 
