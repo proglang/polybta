@@ -55,10 +55,6 @@ module EvaBase where
   ev (ECase e e₁ e₂) env | inj₂ c  = (λ x → ev e₂ (x ∷ env)) c
 
 
-
-
-  
-
 ----------------------------------------------------------------------
 --module "correctness"
 --note: the notion of correctness of partial evaluation
