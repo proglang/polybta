@@ -1,4 +1,4 @@
---library for [BTA5.agda], [BTA6.agda], [DB2PHOAS1.agda], [DB2PHOAS2.agda], and [PHOAS2DB.agda]
+--library 
 module Lib where
 open import Data.Nat public hiding (_<_ ; _*_) 
 open import Function public using (_∘_)
