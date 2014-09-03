@@ -1,6 +1,6 @@
 ---------------------------------------------------------------
 --correctness proof of partial evaluation of liftable terms of
---static integer types 
+--static integer type 
 ---------------------------------------------------------------
 module BTA4 where
 
