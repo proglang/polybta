@@ -75,8 +75,8 @@ int↑ {Ann D x₁} {Γ} {τ ∷ Γ'} (extend {.Γ} {.Γ'} {.τ} Γ↝Γ') e = e
 --a)it is not necessary to have two constructors [envS] and 
 --  [envD] for static and dynamic values respectively. For they
 --  have different type annotations;
---b)in [BTA2.agda] the environment is simplified by having just
---  one constructor [env::] for all target values.
+--b)in the following module [SimpAenv] the environment is simplified 
+--  by having just one constructor [env::] for all target values.
 ------------------------------------------------------------ 
 
 data AEnv : Ctx → ACtx → Set where
@@ -135,3 +135,43 @@ pe env (App {α₁} {α₂} D (wf-fun _ _ prf-2 prf-1) f e)
 pe env (App {.(Ann D σ₁)}{.(Ann D σ₂)} D (wf-fun _ _ prf-2 prf-1) f e)
  | is-dyn σ₁ | is-dyn σ₂ =
  EApp (pe env f) (pe env e) 
+
+-----------------------------------
+--module "SimpAenv"
+--note: environment [AEnv] above
+--      is simplified by combining
+--      [envS] and [envD] together.
+-----------------------------------
+module SimpAenv where
+  
+  data AEnv' : Ctx → ACtx → Set where
+    []  :  ∀ {Γ} → AEnv' Γ []
+    _∷_ : ∀ {Γ Δ} {α} →
+           ATInt Γ α → 
+           AEnv' Γ Δ →
+           AEnv' Γ (α ∷ Δ)
+
+  env↑' : ∀ {Δ Γ Γ'} → Γ ↝ Γ' → AEnv' Γ Δ → AEnv' Γ' Δ
+  env↑' _ [] = []
+  env↑' Γ↝Γ' (_∷_ {α = α} x env) = (int↑ {α} Γ↝Γ' x) ∷ (env↑' Γ↝Γ' env)
+
+  lookup' : ∀ {Γ Δ α} → α ∈ Δ → AEnv' Γ Δ → ATInt Γ α
+  lookup' () []
+  lookup' hd (x ∷ env) = x
+  lookup' (tl idx) (x ∷ env) = lookup' idx env
+
+  pe' : ∀ {Δ Γ α} → AEnv' Γ Δ → AExp Δ α → ATInt Γ α
+  pe' env (Var idx) = lookup' idx env
+  pe' env (Cst S i) = i
+  pe' env (Cst D i) = ECst i
+  pe' {Γ = Γ} env (Lam {α₁} {α₂} S prf exp) =
+      λ {Γ'} (prf₁ : Γ ↝ Γ') (v : ATInt Γ' α₂) → pe' (v ∷ (env↑' prf₁ env)) exp
+  pe' env (Lam {α₁} {α₂} D (wf-fun _ _ prf-2 prf-1) e)
+      with lem-IsDynamic-by-wf α₁ prf-1 | lem-IsDynamic-by-wf α₂ prf-2
+  pe' {Γ = Γ} env (Lam {.(Ann D σ₁)} {.(Ann D σ₂)} D (wf-fun _ _ prf-1 prf-2) e)
+       | is-dyn σ₁ | is-dyn σ₂ =
+       ELam (pe' ( (EVar hd) ∷ (env↑' ((strip' σ₂) ↝-∷ Γ) env)) e)
+  pe' {Γ = Γ} env (App S _ f e) = (pe' env f (refl)) (pe' env e)
+  pe' env (App {α₁} {α₂} D (wf-fun _ _ prf₂ prf₁) f e)
+      with lem-IsDynamic-by-wf α₁ prf₁ | lem-IsDynamic-by-wf α₂ prf₂
+  pe' env (App {.(Ann D σ₁)} {.(Ann D σ₂)} D (wf-fun _ _ prf₂ prf₁) f e) | is-dyn σ₁ | is-dyn σ₂ = EApp (pe' env f) (pe' env e)
