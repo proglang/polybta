@@ -1,18 +1,7 @@
---correctness proof of partial evaluation with liftable terms 
+-------------------------------------------------------------
+--correctness proof of partial evaluation with liftable terms
+------------------------------------------------------------- 
 module BTA6 where
-
-
-----------------------------------------------
--- Preliminaries: Imports and List-utilities
-----------------------------------------------
--- open import Data.Nat hiding  (_<_;_⊔_;_*_;equal)
--- open import Data.Bool hiding (_∧_;_∨_) 
--- open import Function using (_∘_)
--- open import Data.List
--- open import Data.Nat.Properties
--- open import Relation.Nullary
--- open import Relation.Binary.PropositionalEquality
--- open import Data.Empty
 
 open import BTA5
 open import Lib 
@@ -21,7 +10,14 @@ open TwoLevelTypes-Simp-PS
 open TwoLevelTerms-Simp-PS
 
 
-
+----------------------------------------------
+--module "EvaBase"
+--note: it includes
+--a)base type interpreter [TInt];
+--b)environment [Env] for base type variables;
+--c)lookup function [lookupE];
+--d)evaluator for base type terms [ev].
+----------------------------------------------
 module EvaBase where
 
   TInt : Type → Set
@@ -63,74 +59,48 @@ module EvaBase where
 
   
 
--- Correctness proof
-
-module Correctness where
+----------------------------------------------------------------------
+--module "correctness"
+--note: the notion of correctness of partial evaluation
+--      of a program
+--a)result of evaluating the "stripped" program;
+--b)evaluating the partial evaluation result of the 
+--  the program;
+--c)"equality" between a) and b);
+--d)"equality" instead of syntactic equality because 
+--  the differences of evaluating static functions
+--  between a) and b),
+--  TInt (stripα (SFun α₁ α₂)) = TInt (stripα α₁) → TInt (stripα α₂)
+--  ATInt Γ (SFun α₁ α₂) = Γ' → Γ ↝ Γ' → (ATInt Γ' α₁ → ATInt Γ' α₂);
+--e)"equality" between these two evaluation of static functions should
+--  be function extensionality.
+----------------------------------------------------------------------
+module correctness where
   open EvaBase
 
- 
-  stripα = typeof
-
-  stripΔ : ACtx → Ctx
-  stripΔ = map stripα
-
-  strip-lookup : ∀ { α Δ} → α ∈ Δ → stripα α ∈ stripΔ Δ
-  strip-lookup hd = hd
-  strip-lookup (tl x) = tl (strip-lookup x)
-
-
-
-  strip : ∀ {α Δ} → AExp Δ α → Exp (stripΔ Δ) (stripα α)
-  strip (Var x) = EVar (strip-lookup x)
-  strip (SCst x) = ECst x
-  strip (SAdd e e₁) = EAdd (strip e) (strip e₁)
-  strip (SLam e) = ELam (strip e)
-  strip (SApp e e₁)  = EApp (strip e) (strip e₁)
-  strip (DCst x)  = ECst x
-  strip (DAdd e e₁) = EAdd (strip e) (strip e₁)
-  strip (DLam e)  = ELam (strip e)
-  strip (DApp e e₁)  = EApp (strip e) (strip e₁)
-  strip (SPair e e₁)  = EPair (strip e) (strip e₁) 
-  strip (SInl e)  = EInl (strip e)
-  strip (SInr e)  = EInr (strip e)
-  strip (SFst e)  = EFst (strip e)
-  strip (SSnd e)  = ESnd (strip e)
-  strip (SCase e e₁ e₂)  = ECase (strip e) (strip e₁) (strip e₂)
-  strip (DPair e e₁)  = EPair (strip e) (strip e₁) 
-  strip (DInl e)  = EInl (strip e)
-  strip (DInr e)  = EInr (strip e)
-  strip (DFst e)  = EFst (strip e)
-  strip (DSnd e)  = ESnd (strip e)
-  strip (DCase e e₁ e₂)  = ECase (strip e) (strip e₁) (strip e₂)
-  strip (↑ x e) = strip e
-
-
-
-  stripLift : ∀ {α Δ Γ} → stripΔ Δ ↝ Γ → AExp Δ α  → Exp Γ (stripα α)
-  stripLift Δ↝Γ = exp↑ Δ↝Γ ∘ strip
-  
-
-
+  --------------------------------------------------------------
+  --module "Equiv"
+  --note: it specifies the "equivalence" relation between two
+  --      evaluation results,including
+  --a)equivalence relation between two evaluation terms [Equiv];
+  --b)equivalence relation between two environments [Equiv-Env].
+  --------------------------------------------------------------
   module Equiv where
-    --open import Relation.Binary.PropositionalEquality
-    --open import Data.Bool
     open import Data.Empty
-----------------------------------------------------------------------
---move over to the Lib.agda
-    lem-↝-refl-id : ∀ {A : Set} {Γ Γ' : List A} →
-                      (Γ↝Γ' : Γ ↝ Γ') →
-                      Γ↝Γ' ≡ (lem-↝-trans refl Γ↝Γ')  
-    lem-↝-refl-id refl = refl
-    lem-↝-refl-id (extend Γ↝Γ') = refl
-----------------------------------------------------------------------
-    -- Extending a value environment according to an extension of a
-    -- type environment
+
+    -------------------------------------------------------
+    --[_⊢_↝_] Extending a base value environment according 
+    --to an extension of the corresponding type environment
+    -------------------------------------------------------
     data _⊢_↝_ {Γ} : ∀ {Γ'} → Γ ↝ Γ' → Env Γ → Env Γ' → Set where
       refl : ∀ env → refl ⊢ env ↝ env
       extend : ∀ {τ Γ' env env'} →  {Γ↝Γ' : Γ ↝ Γ'} →
                  (v : TInt τ) → (Γ↝Γ' ⊢  env ↝ env')  →
                  extend Γ↝Γ' ⊢ env ↝ (v ∷ env')
-
+    
+    -----------------------
+    --[_⊢_↝_] is transitive
+    -----------------------
     env↝trans : ∀ {Γ Γ' Γ''} {Γ↝Γ' : Γ ↝ Γ'} {Γ'↝Γ'' : Γ' ↝ Γ''}
                   {env env' env''} → 
                   Γ↝Γ' ⊢ env ↝ env' → Γ'↝Γ'' ⊢ env' ↝ env'' →
@@ -140,13 +110,9 @@ module Correctness where
       rewrite sym (lem-↝-refl-id  Γ'↝Γ'') = env'↝env'' 
     env↝trans (extend v env↝env') env'↝env'' = env↝trans (extend v env↝env') env'↝env''
 
-
-
-    
-
-    -- Equivalent Imp Γ α and EImp τ values (where τ = stripα α). As
-    -- (v : Imp Γ α) is not necessarily closed, equivalence is defined for
-    -- the closure (Env Γ, ImpΓ α)
+    -------------------------------------------------------------
+    --[Equiv] equivalence relation between two evaluation results
+    -------------------------------------------------------------
     Equiv : ∀ {α Γ} → Env Γ → ATInt Γ α → TInt (stripα α) → Set
     Equiv {SNum} env av v = av ≡ v
     Equiv {SFun α₁ α₂} {Γ} env av v = ∀ {Γ' env' Γ↝Γ'} →
@@ -160,7 +126,10 @@ module Correctness where
     Equiv {SSum α α₁} env (inj₁ a) (inj₂ b) = ⊥ 
     Equiv {SSum α α₁} env (inj₂ b) (inj₁ a) = ⊥ 
     Equiv {SSum α α₁} env (inj₂ b) (inj₂ b₁) = Equiv {α₁} env b b₁ 
- 
+
+    --------------------------------------------------
+    --[Equiv-Env] equivalence between two environments
+    -------------------------------------------------- 
     data Equiv-Env {Γ' : _} (env' : Env Γ') :
       ∀ {Δ} → let Γ = stripΔ Δ in
       AEnv Γ' Δ → Env Γ → Set where
@@ -171,23 +140,30 @@ module Correctness where
               Equiv-Env env' aenv env →
               (va : ATInt (Γ') α) → (v : TInt τ) → 
               Equiv env' va v → 
-              --Equiv-Env env' (cons α va (aenv)) (v ∷ env)
               Equiv-Env env' (cons {α = α} va (aenv)) (v ∷ env)
 
 
- 
-  module Proof where
+  -------------------------------------------------------
+  --module "Equiv-Elevate"
+  --note: it contains lemmas necessary for proving
+  --      the correctness of the partial evaluator [pe],
+  --a)lemmas of various equalities involving a lifted 
+  --  base value environment;
+  --b)equivalences between lifted values and lifted value
+  --  environments.
+  -------------------------------------------------------
+  module Equiv-Elevate where
     open Equiv
-    open import Data.Bool
-    --open import Relation.Binary.PropositionalEquality
 
-    -- Extensional equality as an axiom to prove the Equivalence of
-    -- function values.  We could (should?) define it locally for
-    -- Equiv.
+    -------------------------------
+    --[ext] function extensionality
+    -------------------------------
     postulate ext : ∀ {τ₁ τ₂} {f g : TInt τ₁ → TInt τ₂} →
                     (∀ x → f x ≡ g x) → f ≡ g
 
-    -- Ternary helper relation for environment extensions, analogous to _↝_↝_ for contexts
+    ----------------------------------------------------------
+    --[_⊢_↝_↝_⊣] similar to [_⊢_↝_], extension from the middle
+    ---------------------------------------------------------- 
     data _⊢_↝_↝_⊣ : ∀ { Γ Γ' Γ''} → Γ ↝ Γ' ↝ Γ'' → Env Γ → Env Γ' → Env Γ'' → Set where
       refl : ∀ {Γ Γ''} {Γ↝Γ'' : Γ ↝ Γ''} { env env'' } →
              Γ↝Γ'' ⊢ env ↝ env'' →
@@ -198,9 +174,10 @@ module Correctness where
 
 
 
-    -- the following lemmas are strong versions of the shifting
-    -- functions, proving that consistent variable renaming preserves
-    -- equivalence (and not just typing).
+    -------------------------------------------------------------------------------------
+    -- the following lemmas prove that "a lifted term combined with a consistently lifted 
+    -- environment preserve the 'meaning' of the term"
+    -------------------------------------------------------------------------------------
     lookup-elevate-≡ : ∀ {τ Γ Γ'} {Γ↝Γ' : Γ ↝ Γ'}
                        {env : Env Γ} {env' : Env Γ'} →
                        Γ↝Γ' ⊢ env ↝ env' → 
@@ -259,16 +236,10 @@ module Correctness where
          where lem-elevate-≡-body : ∀ x → ev e₂ (x ∷ env) ≡ ev (elevate (extend Γ↝Γ'↝Γ'') e₂) (x ∷ env'')
                lem-elevate-≡-body x = lem-elevate-≡ (extend env↝env' x) e₂
 
-    ---------------------------------------------------------
-    -- --move over to the Lib.agda
-    -- lem-↝-refl-id : ∀ {A : Set} {Γ Γ' : List A} →
-    --                   (Γ↝Γ' : Γ ↝ Γ') →
-    --                   Γ↝Γ' ≡ (lem-↝-trans refl Γ↝Γ')  
-    -- lem-↝-refl-id refl = refl
-    -- lem-↝-refl-id (extend Γ↝Γ') = refl
-    ----------------------------------------------------------
-
-
+    --------------------------------------------------------------------------------------------
+    --the following lemmas prove that "a lifted term or environment combined with a consistently
+    --lifted base value environment preserve the equivalence relation" 
+    ---------------------------------------------------------------------------------------------
     lem-lift-refl-id : ∀ {α Γ} → let τ = stripα α in
                        (env : Env Γ) →
                        (v : TInt τ) (va : ATInt Γ α) →
@@ -291,9 +262,6 @@ module Correctness where
     lem-lift-refl-id {SSum α α₁} env (inj₂ b) (inj₂ b₁) eq = lem-lift-refl-id  env b b₁ eq
 
 
-
-  
-    -- lifting an Imp does not affect equivalence
     lem-lift-equiv : ∀ {α Γ Γ'} → let τ = stripα α in
                      {Γ↝Γ' : Γ ↝ Γ'} →
                      (va : ATInt Γ α) (v : TInt τ) →
@@ -312,8 +280,6 @@ module Correctness where
     lem-lift-equiv {SSum α α₁} (inj₁ a) (inj₂ b) (extend v₁ env↝env') () 
     lem-lift-equiv {SSum α α₁} (inj₂ b) (inj₁ a) (extend v₁ env↝env') ()
     lem-lift-equiv {SSum α α₁} (inj₂ b) (inj₂ b₁) (extend v₁ env↝env') eq = lem-lift-equiv  b b₁ (extend v₁ env↝env') eq
-
-
 
 
     lem-equiv-lookup : ∀ {α Δ Γ'} → let Γ = stripΔ Δ in
@@ -349,10 +315,9 @@ module Correctness where
     ... | IA = cons IA (int↑ α Γ↝Γ' va) v (lem-lift-equiv va v env'↝env'' x)
 
    
-  --------------------------------
-  --"lift-correct" equivalence lemma
-  --------------------------------
-    open import Data.Product
+    --------------------------------
+    --"lift-correct" equivalence lemma
+    --------------------------------
     mutual 
       lift-correct : ∀ {Γ α} (lft : Liftable α) (env : Env Γ) (av : ATInt Γ α) (v : TInt (typeof α)) →  
                      Equiv env av v → (Equiv env (lift lft av) v)
@@ -393,14 +358,14 @@ module Correctness where
                               |  (cong (λ f → f v') eq) = refl
   
  
-
-    ---------------------------------------
-    --Correctness proof with liftable terms
-    ---------------------------------------
-
-    -- When we partially evaluate somthing under an environment , it
-    -- will give equivalent results to a ``complete'' evaluation under
-    -- an equivalent environment 
+  ----------------------------------------
+  --module "Proof"
+  --note: the proof of correctness of [pe]
+  ----------------------------------------
+  module Proof where
+    open Equiv
+    open Equiv-Elevate
+ 
     pe-correct : ∀ { α Δ Γ' } → (e : AExp Δ α) →
                  let Γ = stripΔ Δ in 
                  {aenv : AEnv Γ' Δ} → {env : Env Γ} → 
@@ -466,8 +431,8 @@ module Correctness where
     pe-correct (DCase e e₁ e₂) {aenv = aenv} {env = env} env' eqenv with ev (pe e aenv) env' | ev (strip e) env | pe-correct e env' eqenv
     ... | inj₁ c | inj₁ c' | IA rewrite (→tl {x' = c} {y' = c'} (inj₁ c) (inj₁ c') IA refl refl) = 
       pe-correct e₁
-        {aenv = cons (EVar hd) (env↑ (extend refl) aenv)}
-        {env = c' ∷ env} (c' ∷ env') (cons (lem-equiv-env-lift-lift (extend c' (refl env')) eqenv) (EVar hd) c' refl)
+          {aenv = cons (EVar hd) (env↑ (extend refl) aenv)}
+          {env = c' ∷ env} (c' ∷ env') (cons (lem-equiv-env-lift-lift (extend c' (refl env')) eqenv) (EVar hd) c' refl)
     ... | inj₂ c | inj₂ c' | IA rewrite (→tr {x' = c} {y' = c'} (inj₂ c) (inj₂ c') IA refl refl) = 
       pe-correct e₂
         {aenv = cons (EVar hd) (env↑ (extend refl) aenv)}
