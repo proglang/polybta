@@ -9,12 +9,40 @@ open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality 
 open import Data.Empty
 open import Data.Product
-open import Lib hiding (_∧_)
 open import Data.Sum
 open import Data.Unit
 
 
+infix 4 _∈_
+data _∈_ {A : Set} : A → List A → Set where
+    hd : ∀ {x xs} → x ∈ (x ∷ xs)
+    tl : ∀ {x y xs} → x ∈ xs → x ∈ (y ∷ xs)
 
+
+  -- Extension of a list by consing elements at the front. 
+data _↝_ {A : Set} : List A → List A → Set where
+    ↝-refl   : ∀ {Γ}      → Γ ↝ Γ
+    ↝-extend : ∀ {Γ Γ' τ} → Γ ↝ Γ' → Γ ↝ (τ ∷ Γ')
+  
+  -- Combining two transitive extensions. 
+↝-trans : ∀ {A : Set}{Γ Γ' Γ'' : List A} → Γ ↝ Γ' → Γ' ↝ Γ'' → Γ ↝ Γ''
+↝-trans Γ↝Γ' ↝-refl = Γ↝Γ'
+↝-trans Γ↝Γ' (↝-extend Γ'↝Γ'') = ↝-extend (↝-trans Γ↝Γ' Γ'↝Γ'')
+  
+  -- Of course, ↝-refl is the identity for combining two extensions.
+lem-↝-refl-id : ∀ {A : Set} {Γ Γ' : List A} →
+                    (Γ↝Γ' : Γ ↝ Γ') →
+                    Γ↝Γ' ≡ (↝-trans ↝-refl Γ↝Γ')  
+lem-↝-refl-id ↝-refl = refl
+lem-↝-refl-id (↝-extend Γ↝Γ') = cong ↝-extend (lem-↝-refl-id Γ↝Γ')
+
+  -- Extending a list in the middle: 
+data _↝_↝_ {A : Set} : List A → List A → List A → Set where
+    -- First prepend the extension list to the common suffix
+    ↝↝-base   : ∀ {Γ Γ''} → Γ ↝ Γ'' → Γ ↝ [] ↝ Γ'' 
+    -- ... and then add the common prefix
+    ↝↝-extend : ∀ {Γ Γ' Γ'' τ} →
+                 Γ ↝ Γ' ↝ Γ'' → (τ ∷ Γ) ↝ (τ ∷ Γ') ↝ (τ ∷ Γ'') 
 
 ----------------------
 --residual type [Type]
