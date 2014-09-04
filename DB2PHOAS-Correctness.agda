@@ -1,16 +1,7 @@
---b)correctness proof of the translation
+--------------------------------------
+--correctness proof of the translation
+--------------------------------------
 module DB2PHOAS-Correctness where
-
--- open import Data.Nat hiding  (_<_;_⊔_;_*_;equal)
--- open import Data.Bool hiding (_∨_) 
--- open import Function using (_∘_)
--- open import Data.List
--- open import Data.Nat.Properties
--- open import Relation.Nullary
--- open import Relation.Binary.PropositionalEquality 
--- open import Data.Empty
---open import Data.Product
---open import Data.Sum
 
 open import Lib
 open Auxiliaries
@@ -175,7 +166,7 @@ module DB→PHOAS-Correct where
       
     open Exp2exp-≡ public 
  
-  --open Exp2exp public
+  
 
   --------------------------------------
   --module "similar-exp"
