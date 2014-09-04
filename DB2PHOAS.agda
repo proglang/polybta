@@ -2,7 +2,6 @@
 --translation from "De Bruijn" terms to "PHOAS" terms
 -----------------------------------------------------
 module DB2PHOAS where
-
 open import Lib
 open Auxiliaries
 open DB&PHOAS
