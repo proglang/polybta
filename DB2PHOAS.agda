@@ -68,7 +68,6 @@ module PE-DB where
       PE (↑ l e) env = Lift l (PE e env) 
 
 
-open PE-DB public
 
 
 --------------------------------------
@@ -115,7 +114,7 @@ module PE-PHOAS where
   pe (DApp e1 e2) = EApp (pe e1) (pe e2)
   pe (↑ l e) = lift l (pe e)
 
-open PE-PHOAS public
+
 
 
 module DB2PHOAS where
@@ -214,6 +213,6 @@ module DB2PHOAS where
     proj (↑ l e) env = ↑ l (proj e env)
   
   open Proj public
-open DB2PHOAS public
+
 
 
