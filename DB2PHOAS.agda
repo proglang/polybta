@@ -117,7 +117,7 @@ module PE-PHOAS where
 
 
 
-module DB2PHOAS where
+module DB→PHOAS where
   open PE-DB
   open PE-PHOAS
 
