@@ -63,11 +63,15 @@ module Auxiliaries where
       refl   : {l : List A} → l ↝ l
       extend : ∀ {l₁ l₂ τ}  → l₁ ↝ l₂ → l₁ ↝ (τ ∷ l₂)
 
-    lem-↝-trans : {A : Set} → {l₁ : List A} {l₂ : List A} {l₃ : List A} →
-                  l₁ ↝ l₂ → l₂ ↝ l₃ → l₁ ↝ l₃
-    lem-↝-trans le1  refl = le1
-    lem-↝-trans refl (extend e) = extend e
-    lem-↝-trans (extend e) (extend e') = extend (lem-↝-trans (extend e) e') 
+    -- lem-↝-trans : {A : Set} → {l₁ : List A} {l₂ : List A} {l₃ : List A} →
+    --               l₁ ↝ l₂ → l₂ ↝ l₃ → l₁ ↝ l₃
+    -- lem-↝-trans le1  refl = le1
+    -- lem-↝-trans refl (extend e) = extend e
+    -- lem-↝-trans (extend e) (extend e') = extend (lem-↝-trans (extend e) e') 
+
+    lem-↝-trans : ∀ {A : Set}{Γ Γ' Γ'' : List A} → Γ ↝ Γ' → Γ' ↝ Γ'' → Γ ↝ Γ''
+    lem-↝-trans Γ↝Γ' refl = Γ↝Γ'
+    lem-↝-trans Γ↝Γ' (extend Γ'↝Γ'') = extend (lem-↝-trans Γ↝Γ' Γ'↝Γ'')
 
     _↝-∷_ : {A : Set} (x : A) (l : List A) → l ↝ (x ∷ l)
     x ↝-∷ l = extend refl
@@ -394,7 +398,7 @@ module TwoLevelTerms-Simp-Lift where
                       (Γ↝Γ' : Γ ↝ Γ') →
                       Γ↝Γ' ≡ (lem-↝-trans refl Γ↝Γ')  
     lem-↝-refl-id refl = refl
-    lem-↝-refl-id (extend Γ↝Γ') = refl
+    lem-↝-refl-id (extend Γ↝Γ') = cong extend (lem-↝-refl-id Γ↝Γ')
 
   open Correctness public  
  
@@ -743,7 +747,7 @@ module TwoLevelTerms-Simp-PS where
                       (Γ↝Γ' : Γ ↝ Γ') →
                       Γ↝Γ' ≡ (lem-↝-trans refl Γ↝Γ')  
     lem-↝-refl-id refl = refl
-    lem-↝-refl-id (extend Γ↝Γ') = refl
+    lem-↝-refl-id (extend Γ↝Γ') = cong extend (lem-↝-refl-id Γ↝Γ')
 
   open Correctness public 
 
@@ -944,6 +948,131 @@ module TwoLevelTerms-Simp-PSRI where
                       (Γ↝Γ' : Γ ↝ Γ') →
                       Γ↝Γ' ≡ (lem-↝-trans refl Γ↝Γ')  
     lem-↝-refl-id refl = refl
-    lem-↝-refl-id (extend Γ↝Γ') = refl
+    lem-↝-refl-id (extend Γ↝Γ') = cong extend (lem-↝-refl-id Γ↝Γ')
 
   open Correctness public 
+
+
+-------------------------------------------------------------------------------
+--module "DB&PHOAS"
+--note: it includes
+--1)DB terms and weakening lemmas;
+--2)PHOAS terms.
+-------------------------------------------------------------------------------
+module DB&PHOAS where
+  open TwoLevelTypes-Simp public
+  
+  -------------------------
+  --module "DB-Terms"
+  --note: "De Bruijn" terms
+  -------------------------
+  module DB-Terms where
+    open Auxiliaries
+    
+    data Exp (Γ : Ctx) : Type → Set where
+      EVar : ∀ {τ} → τ ∈ Γ → Exp Γ τ
+      ECst : ℕ → Exp Γ Num
+      EAdd : Exp Γ Num → Exp Γ Num -> Exp Γ Num
+      ELam : ∀ {τ τ'} → Exp (τ ∷ Γ) τ' → Exp Γ (Fun τ τ')
+      EApp : ∀ {τ τ'} → Exp Γ (Fun τ τ')  → Exp Γ τ → Exp Γ τ'
+   
+    module liftable where
+      
+      typeof : AType → Type
+      typeof SNum = Num
+      typeof (SFun α₁ α₂) = Fun (typeof α₁) (typeof α₂) 
+      typeof (D x) = x
+
+      -----------------------------------
+      --a less powerful lifting criterion
+      -----------------------------------
+      data liftable1 : AType → Set where
+        base : ∀ {x : Type} → liftable1 (D x)
+        Func : ∀ {α₁ α₂ : AType} 
+               → liftable1 α₁ → liftable1 α₂
+               → liftable1 (SFun α₁ α₂)
+
+      ---------------------------------------------
+      --[liftable] in [BTA9] without pairs and sums
+      ---------------------------------------------
+      mutual 
+        data Liftable2 : AType → Set where
+          D : ∀ τ → Liftable2 (D τ)
+          SCst : Liftable2 SNum
+          SFun : ∀ {α₁ α₂} → Liftable2⁻ α₁ → Liftable2 α₂ → Liftable2 (SFun α₁ α₂)
+
+        data Liftable2⁻ : AType → Set where
+          D : ∀ τ → Liftable2⁻ (D τ)
+          SFun : ∀ {α₁ α₂} → Liftable2 α₁ → Liftable2⁻ α₂ → Liftable2⁻ (SFun α₁ α₂)
+   
+    open liftable public
+
+
+    data AExp (Δ : ACtx) : AType → Set where
+      Var : ∀ {α} → α ∈ Δ → AExp Δ α
+      SCst : ℕ → AExp Δ SNum
+      SAdd : AExp Δ SNum → AExp Δ SNum → AExp Δ SNum
+      SLam : ∀ {α₁ α₂}   → AExp (α₁ ∷ Δ) α₂ → AExp Δ (SFun α₁ α₂)
+      SApp : ∀ {α₁ α₂}   → AExp Δ (SFun α₂ α₁) → AExp Δ α₂ → AExp Δ α₁
+      DCst : ℕ → AExp Δ (D Num)
+      DAdd : AExp Δ (D Num) → AExp Δ (D Num) → AExp Δ (D Num)
+      DLam : ∀ {τ₁ τ₂}   → AExp ((D τ₁) ∷ Δ) (D τ₂) → AExp Δ (D (Fun τ₁ τ₂))
+      DApp : ∀ {τ₁ τ₂}   → AExp Δ (D (Fun τ₂ τ₁)) → AExp Δ (D τ₂) → AExp Δ (D τ₁)
+      ↑    : ∀  {α} → liftable1 α → AExp Δ α → AExp Δ (D (typeof α))
+    
+    
+    module Weakening where
+      
+       elevate-var : ∀ {Γ Γ'} {τ : Type} → Γ ↝ Γ' → τ ∈ Γ → τ ∈ Γ'
+       elevate-var refl τ∈Γ = τ∈Γ
+       elevate-var (extend Γ↝Γ') τ∈Γ = tl (elevate-var Γ↝Γ' τ∈Γ)
+
+       elevate-var2 : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → τ ∈ Γ → τ ∈ Γ'' 
+       elevate-var2 (refl x) x₁ = elevate-var x x₁
+       elevate-var2 (extend Γ↝Γ'↝Γ'') hd = hd
+       elevate-var2 (extend Γ↝Γ'↝Γ'') (tl x) = tl (elevate-var2 Γ↝Γ'↝Γ'' x)
+
+       elevate : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → Exp Γ τ → Exp Γ'' τ
+       elevate Γ↝Γ'↝Γ'' (EVar x) = EVar (elevate-var2 Γ↝Γ'↝Γ'' x)
+       elevate Γ↝Γ'↝Γ'' (ECst x) = ECst x
+       elevate Γ↝Γ'↝Γ'' (EAdd e e₁) = EAdd (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
+       elevate Γ↝Γ'↝Γ'' (ELam e) = ELam (elevate (extend Γ↝Γ'↝Γ'') e)
+       elevate Γ↝Γ'↝Γ'' (EApp e e₁) = EApp (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
+
+       exp↑ : ∀ {τ Γ Γ'} → Γ ↝ Γ' → Exp Γ τ → Exp Γ' τ
+       exp↑ Γ↝Γ' e = elevate (refl Γ↝Γ') e
+
+
+    
+    open Weakening public
+  open DB-Terms public
+  
+  ----------------------
+  --module "PHOAS-Terms"
+  --note: PHOAS terms
+  ----------------------
+  module PHOAS-Terms where
+
+    data exp (var : Type → Set) : Type → Set where
+      EVar : ∀ {A} → var A → exp var A
+      ECst : ℕ → exp var Num
+      EAdd : exp var Num → exp var Num → exp var Num
+      ELam : ∀ {A B} → (var A → exp var B) → exp var (Fun A B)
+      EApp : ∀ {A B} → exp var (Fun A B) → exp var A → exp var B
+
+    data aexp (var : AType → Set) : AType → Set where
+      Var  : ∀ {A} → var A → aexp var A
+      SCst : ℕ → aexp var SNum
+      SAdd : aexp var SNum → aexp var SNum → aexp var SNum
+      SLam : ∀ {A B} → (var A → aexp var B) → aexp var (SFun A B)
+      SApp : ∀ {A B} → aexp var (SFun A B) → aexp var A → aexp var B
+      DCst : ℕ → aexp var (D Num)
+      DAdd : aexp var (D Num) → aexp var (D Num) → aexp var (D Num)
+      DLam : ∀ {a b} → (var (D a) → aexp var (D b)) → aexp var (D (Fun a b))
+      DApp : ∀ {a b} → aexp var (D (Fun a b)) → aexp var (D a) → aexp var (D b)
+      ↑    : ∀  {α} → liftable1 α → aexp var α → aexp var (D (typeof α))
+  
+  open PHOAS-Terms public
+
+    
+    
