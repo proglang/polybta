@@ -44,20 +44,20 @@ int↑ (SSum α₁ α₂) Γ↝Γ' (inj₂ v) = inj₂ (int↑ α₂ Γ↝Γ' v)
 ------------------------------------------------------------ 
 data AEnv (Γ : Ctx) : ACtx → Set where
   [] : AEnv Γ []
-  cons : ∀ {Δ} {α : AType} → ATInt Γ α → AEnv Γ Δ → AEnv Γ (α ∷ Δ)
+  _∷_ : ∀ {Δ} {α : AType} → ATInt Γ α → AEnv Γ Δ → AEnv Γ (α ∷ Δ)
 
 ----------------------------------------------------------
 --[env↑] weakens the typing context [Γ] of the environment
 ----------------------------------------------------------
 env↑ : ∀ {Γ Γ' Δ} → Γ ↝ Γ' → AEnv Γ Δ → AEnv Γ' Δ
 env↑ Γ↝Γ' [] = []
-env↑ Γ↝Γ' (cons {α = α} x env) = cons {α = α} (int↑ α Γ↝Γ' x) (env↑ Γ↝Γ' env)
+env↑ Γ↝Γ' (_∷_ {α = α} x env) = _∷_ {α = α} (int↑ α Γ↝Γ' x) (env↑ Γ↝Γ' env)
 
 -----------------------------------------------------------
 --[consD] extends the environment with a base type variable
 -----------------------------------------------------------  
 consD : ∀ {Γ Δ} σ → AEnv Γ Δ → AEnv (σ ∷ Γ) (D σ ∷ Δ)
-consD σ env = (cons {α = D σ} (EVar hd) (env↑ (extend {τ = σ} refl) env))
+consD σ env = (_∷_ {α = D σ} (EVar hd) (env↑ (extend {τ = σ} refl) env))
 
 -----------------------------------------------------------------------
 --[lookup] get from the environment the corresponding "target value" of 
@@ -65,8 +65,8 @@ consD σ env = (cons {α = D σ} (EVar hd) (env↑ (extend {τ = σ} refl) env))
 ----------------------------------------------------------------------- 
 lookup : ∀ {α Δ Γ} → AEnv Γ Δ → α ∈ Δ → ATInt Γ α
 lookup [] ()
-lookup {α} (cons x aenv) hd = x
-lookup {α} (cons x aenv) (tl {.α} {y} id) = lookup aenv id
+lookup {α} (x ∷ aenv) hd = x
+lookup {α} (x ∷ aenv) (tl {.α} {y} id) = lookup aenv id
   
 ------------------------------------------------------   
 --[lift] helper function for evaluating liftable terms
@@ -99,7 +99,7 @@ pe : ∀ {α Δ Γ} → AExp Δ α → AEnv Γ Δ → ATInt Γ α
 pe (Var x) env = lookup env x
 pe (SCst x) env = x
 pe (SAdd e e₁) env = pe e env + pe e₁ env
-pe (SLam {α} e) env = λ Γ↝Γ' → λ y → pe e (cons {α = α} y (env↑ Γ↝Γ' env))
+pe (SLam {α} e) env = λ Γ↝Γ' → λ y → pe e (_∷_ {α = α} y (env↑ Γ↝Γ' env))
 pe (SApp e e₁) env = pe e env refl (pe e₁ env)
 pe (DCst x) env = ECst x
 pe (DAdd e e₁) env = EAdd (pe e env) (pe e₁ env)
@@ -111,8 +111,8 @@ pe {α = SSum α₁ α₂} {Γ = Γ} (SInr e) env = inj₂ (pe {α = α₂} {Γ 
 pe {Γ = Γ} (SFst e) env = proj₁ (pe {Γ = Γ} e env)
 pe {Γ = Γ} (SSnd e) env = proj₂ (pe {Γ = Γ} e env)
 pe {Γ = Γ} (SCase e e₁ e₂) env with pe {Γ = Γ} e env
-pe {Γ = Γ} (SCase {α₁ = α} e e₁ e₂) env | inj₁ y = (λ Γ↝Γ' → λ y → pe e₁ (cons {α = α} y (env↑ Γ↝Γ' env))) refl y
-pe {Γ = Γ} (SCase {α₂ = α} e e₁ e₂) env | inj₂ y = (λ Γ↝Γ' → λ y → pe e₂ (cons {α = α} y (env↑ Γ↝Γ' env))) refl y
+pe {Γ = Γ} (SCase {α₁ = α} e e₁ e₂) env | inj₁ y = (λ Γ↝Γ' → λ y → pe e₁ (_∷_ {α = α} y (env↑ Γ↝Γ' env))) refl y
+pe {Γ = Γ} (SCase {α₂ = α} e e₁ e₂) env | inj₂ y = (λ Γ↝Γ' → λ y → pe e₂ (_∷_ {α = α} y (env↑ Γ↝Γ' env))) refl y
 pe (DPair e e₁) env = EPair (pe e env) (pe e₁ env)
 pe (DInl e) env = EInl (pe e env)
 pe (DInr e) env = EInr (pe e env)
