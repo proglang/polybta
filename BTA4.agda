@@ -132,7 +132,7 @@ module correctness where
               Equiv-Env env' aenv env →
               (va : ATInt (Γ') α) → (v : TInt τ) → 
               Equiv env' va v → 
-              Equiv-Env env' (cons {α = α} va (aenv)) (v ∷ env)
+              Equiv-Env env' (_∷_ {α = α} va (aenv)) (v ∷ env)
 
 
   -------------------------------------------------------
