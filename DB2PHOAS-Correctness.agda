@@ -288,7 +288,7 @@ module DB→PHOAS-Correct where
         : ∀ {Δ : ACtx} → AEnv (en₁2Ctx (Γ2en₁ Γ)) Δ → Env var₂ Δ → Set₁ where
       []    : similar-env [] [] 
       scons  : ∀ {A : AType} {Δ : ACtx} {e : ATInt (en₁2Ctx (Γ2en₁ Γ)) A} {e' : atint var₂ A} {aen : AEnv (en₁2Ctx (Γ2en₁ Γ)) Δ} {en : Env var₂ Δ} 
-                  → Similar Γ e e'  → similar-env {var₁} {var₂} {Γ} {Δ} aen en → similar-env (cons e aen) (cons e' en)
+                  → Similar Γ e e'  → similar-env {var₁} {var₂} {Γ} {Δ} aen en → similar-env (e ∷ aen) (e' ∷ en)
   
   
     
@@ -425,7 +425,7 @@ module DB→PHOAS-Correct where
                            similar-env {var₁} {var₂} {Γ} {Δ} aen en → 
                            similar-env {var₁} {var₂} {Γ'} {Δ} (env↑ (etG2S et) aen) en 
         lift-similar-env [] = []
-        lift-similar-env {A ∷ Δ} {var₁} {var₂} {Γ} {Γ'} {et} {cons e aen} {cons e' en}  (scons x sim) 
+        lift-similar-env {A ∷ Δ} {var₁} {var₂} {Γ} {Γ'} {et} {e ∷ aen} {e' ∷ en}  (scons x sim) 
              = scons (lift-similar {A} {var₁} {var₂} {Γ} {Γ'} {et} {e} {e'} x) 
                      (lift-similar-env {Δ} {var₁} {var₂} {Γ} {Γ'} {et} {aen} {en} sim) 
      
@@ -508,7 +508,7 @@ module DB→PHOAS-Correct where
         proj-correct {Δ} {(SFun α₁ α₂)} {var₁} {var₂} {Γ} {SLam e} {aen} {en} sim 
                    = λ {Γ'} {v} {v'} et simvv' →
                        proj-correct {α₁ ∷ Δ} {α₂} {var₁} {var₂} {Γ'} {e}
-                       {cons v (env↑ (etG2S et) aen)} {cons v' en}
+                       {v ∷ (env↑ (etG2S et) aen)} {v' ∷ en}
                        (scons {A = α₁} {Δ = Δ} {e = v} {e' = v'}
                        {aen = env↑ (etG2S et) aen} {en = en} simvv'
                         (lift-similar-env {Δ} {var₁} {var₂} {Γ} {Γ'} {et} {aen} {en} sim))
@@ -524,15 +524,15 @@ module DB→PHOAS-Correct where
                    = similar-EAdd (proj-correct {Δ} {D Num} {var₁} {var₂} {Γ} {e} {aen} {en} sim) 
                      (proj-correct {Δ} {D Num} {var₁} {var₂} {Γ} {e₁} {aen} {en} sim)
         proj-correct {Δ} {(D (Fun τ₁ τ₂))} {var₁} {var₂} {Γ} {DLam e} {aen} {en} sim 
-           rewrite Exp2exp-ELam≡ {τ₁} {τ₂} {var₁} {Γ2en₁ Γ} {PE e (cons (EVar hd) (env↑ (extend refl) aen))}
+           rewrite Exp2exp-ELam≡ {τ₁} {τ₂} {var₁} {Γ2en₁ Γ} {PE e ((EVar hd) ∷ (env↑ (extend refl) aen))}
                    = similar-ELam {A = τ₁} {B = τ₂} 
-                     {f₁ = λ v → Exp2exp ((τ₁ , v) ∷ Γ2en₁ Γ)(PE e (cons (EVar hd) (env↑ (extend refl) aen)))} 
-                     {f₂ = λ v → pe (proj e (cons (EVar v) en))}  
+                     {f₁ = λ v → Exp2exp ((τ₁ , v) ∷ Γ2en₁ Γ)(PE e ((EVar hd) ∷ (env↑ (extend refl) aen)))} 
+                     {f₂ = λ v → pe (proj e ((EVar v) ∷ en))}  
                      (λ v₁ v₂ →
                       proj-correct {D τ₁ ∷ Δ} {D τ₂} {var₁} {var₂} {(τ₁ , v₁ , v₂) ∷ Γ}
-                     {e} {cons (EVar hd) (env↑ (extend refl) aen)}
-                     {cons (EVar v₂) en} (this {v₁} {v₂}))
-                         where this : ∀ {v₁} {v₂} → similar-env (cons (EVar hd) (env↑ (extend refl) aen)) (cons (EVar v₂) en)
+                     {e} {(EVar hd) ∷ (env↑ (extend refl) aen)}
+                     {(EVar v₂) ∷ en} (this {v₁} {v₂}))
+                         where this : ∀ {v₁} {v₂} → similar-env ((EVar hd) ∷ (env↑ (extend refl) aen)) ((EVar v₂) ∷ en)
                                this {v₁} {v₂} = scons (similar-EVar hd) (lift-similar-env sim)
         proj-correct {Δ} {(D τ₁)} {var₁} {var₂} {Γ} {DApp {τ₂ = τ₂} e e₁} {aen} {en} sim 
                   rewrite Exp2exp-EApp≡ {τ₂} {τ₁} {var₁} {Γ2en₁ Γ} {PE e aen} {PE e₁ aen}
