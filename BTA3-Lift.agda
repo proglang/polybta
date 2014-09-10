@@ -38,28 +38,28 @@ int↑ (D x₁) Γ↝Γ' v = elevate (refl Γ↝Γ') v
 ------------------------------------------------------------ 
 data AEnv (Γ : Ctx) : ACtx → Set where
   [] : AEnv Γ []
-  cons : ∀ {Δ} {α : AType} → ATInt Γ α → AEnv Γ Δ → AEnv Γ (α ∷ Δ)
+  _∷_ : ∀ {Δ} {α : AType} → ATInt Γ α → AEnv Γ Δ → AEnv Γ (α ∷ Δ)
 
 ----------------------------------------------------------
 --[env↑] weakens the typing context [Γ] of the environment
 ----------------------------------------------------------
 env↑ : ∀ {Γ Γ' Δ} → Γ ↝ Γ' → AEnv Γ Δ → AEnv Γ' Δ
 env↑ Γ↝Γ' [] = []
-env↑ Γ↝Γ' (cons {α = α} x env) = cons (int↑ α Γ↝Γ' x) (env↑ Γ↝Γ' env)
+env↑ Γ↝Γ' (_∷_ {α = α} x env) =  (int↑ α Γ↝Γ' x) ∷ (env↑ Γ↝Γ' env)
   
 -----------------------------------------------------------
 --[consD] extends the environment with a base type variable
 -----------------------------------------------------------
 consD : ∀ {Γ Δ} σ → AEnv Γ Δ → AEnv (σ ∷ Γ) (D σ ∷ Δ)
-consD σ env = (cons {α = D σ} (EVar hd) (env↑ (extend {τ = σ} refl) env))
+consD σ env = (_∷_ {α = D σ} (EVar hd) (env↑ (extend {τ = σ} refl) env))
   
 -----------------------------------------------------------------------
 --[lookup] get from the environment the corresponding "target value" of 
 --a given free variable in the source expression.
 -----------------------------------------------------------------------
 lookup : ∀ {α Δ Γ} → AEnv Γ Δ → α ∈ Δ → ATInt Γ α
-lookup (cons v env) hd =  v 
-lookup (cons v env) (tl x) = lookup env x
+lookup ( v ∷ env) hd =  v 
+lookup (v ∷ env) (tl x) = lookup env x
   
 
 ------------------------------------------------------------------------
@@ -73,7 +73,7 @@ pe : ∀ {α Δ Γ} → AExp Δ α → AEnv Γ Δ → ATInt Γ α
 pe (Var x) env = lookup env x 
 pe (SCst x) env = x
 pe (SAdd e₁ e₂) env = pe e₁ env + pe e₂ env
-pe (SLam {α} e) env = λ Γ↝Γ' → λ y → pe e (cons y (env↑ Γ↝Γ' env)) 
+pe (SLam {α} e) env = λ Γ↝Γ' → λ y → pe e (y ∷ (env↑ Γ↝Γ' env)) 
 pe (SApp e₁ e₂) env = ((pe e₁ env) refl) (pe e₂ env)
 pe (DCst x) env = ECst x
 pe (DAdd e e₁) env = EAdd (pe e env) (pe e₁ env)
