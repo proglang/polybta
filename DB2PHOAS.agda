@@ -27,19 +27,19 @@ module PE-DB where
 
     data AEnv (Γ : Ctx) : ACtx → Set where
       [] : AEnv Γ []
-      cons : ∀ {Δ} {α : AType} → ATInt Γ α → AEnv Γ Δ → AEnv Γ (α ∷ Δ)
+      _∷_ : ∀ {Δ} {α : AType} → ATInt Γ α → AEnv Γ Δ → AEnv Γ (α ∷ Δ)
 
     env↑ : ∀ {Γ Γ' Δ} → Γ ↝ Γ' → AEnv Γ Δ → AEnv Γ' Δ
     env↑ Γ↝Γ' [] = []
-    env↑ Γ↝Γ' (cons {α = α} x env) = cons {α = α} (int↑ α Γ↝Γ' x) (env↑ Γ↝Γ' env)
+    env↑ Γ↝Γ' (_∷_ {α = α} x env) = _∷_ {α = α} (int↑ α Γ↝Γ' x) (env↑ Γ↝Γ' env)
 
     consD : ∀ {Γ Δ} σ → AEnv Γ Δ → AEnv (σ ∷ Γ) (D σ ∷ Δ)
-    consD σ env = (cons {α = D σ} (EVar hd) (env↑ (extend {τ = σ} refl) env))
+    consD σ env = (_∷_ {α = D σ} (EVar hd) (env↑ (extend {τ = σ} refl) env))
 
     lookup : ∀ {α Δ Γ} → AEnv Γ Δ → α ∈ Δ → ATInt Γ α
     lookup [] ()
-    lookup {α} (cons x aenv) hd = x
-    lookup {α} (cons x aenv) (tl {.α} {y} id) = lookup aenv id
+    lookup {α} (x ∷ aenv) hd = x
+    lookup {α} (x ∷ aenv) (tl {.α} {y} id) = lookup aenv id
 
     mutual 
       Lift : ∀ {Γ α} → liftable1 α → ATInt Γ α → (Exp Γ (typeof α))
@@ -58,7 +58,7 @@ module PE-DB where
       PE (Var x) env = lookup env x
       PE (SCst x) env = x
       PE (SAdd e e₁) env = PE e env + PE e₁ env
-      PE (SLam {α} e) env = λ Γ↝Γ' → λ y → PE e (cons {α = α} y (env↑ Γ↝Γ' env))
+      PE (SLam {α} e) env = λ Γ↝Γ' → λ y → PE e (_∷_ {α = α} y (env↑ Γ↝Γ' env))
       PE (SApp e e₁) env = PE e env refl (PE e₁ env)
       PE (DCst x) env = ECst x
       PE (DAdd e e₁) env = EAdd (PE e env) (PE e₁ env)
@@ -83,11 +83,11 @@ module PE-PHOAS where
 
   data Env (var : Type → Set) : ACtx → Set₁ where
     []   : Env var []
-    cons : ∀ {Δ} {α : AType} → atint var α → Env var Δ → Env var (α ∷ Δ)
+    _∷_ : ∀ {Δ} {α : AType} → atint var α → Env var Δ → Env var (α ∷ Δ)
 
   lookupenv : ∀ {A : AType} {Δ : ACtx} {var : Type → Set} → A ∈ Δ → Env var Δ → atint var A
-  lookupenv hd (cons x l) = x
-  lookupenv (tl id) (cons x l) = lookupenv id l 
+  lookupenv hd (x ∷ l) = x
+  lookupenv (tl id) (x ∷ l) = lookupenv id l 
 
   mutual 
     lift : ∀ {A var} → liftable1 A → atint var A → (exp var (typeof A))
@@ -203,11 +203,11 @@ module DB→PHOAS where
     proj {A} {Δ} (Var x) env = Var (lookupenv x env)
     proj {SNum} (SCst x) env = SCst x
     proj (SAdd ae ae₁) env = SAdd (proj ae env) (proj ae₁ env)
-    proj {SFun α₁ α₂}  (SLam ae) env = SLam (λ x → proj ae (cons x env))
+    proj {SFun α₁ α₂}  (SLam ae) env = SLam (λ x → proj ae (x ∷ env))
     proj (SApp ae ae₁) env = SApp (proj ae env) (proj ae₁ env)
     proj (DCst x) env = DCst x
     proj (DAdd ae ae₁) env = DAdd (proj ae env) (proj ae₁ env)
-    proj {D (Fun τ₁ τ₂)} (DLam ae) env = DLam (λ v → proj ae (cons v env))
+    proj {D (Fun τ₁ τ₂)} (DLam ae) env = DLam (λ v → proj ae (v ∷ env))
     proj (DApp ae ae₁) env = DApp (proj ae env) (proj ae₁ env)
     proj (↑ l e) env = ↑ l (proj e env)
   
