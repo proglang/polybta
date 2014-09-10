@@ -136,7 +136,7 @@ module correctness where
               Equiv-Env env' aenv env →
               (va : ATInt (Γ') α) → (v : TInt τ) → 
               Equiv env' va v → 
-              Equiv-Env env' (cons {α = α} va (aenv)) (v ∷ env)
+              Equiv-Env env' (_∷_ {α = α} va (aenv)) (v ∷ env)
 
 
   -------------------------------------------------------
@@ -406,10 +406,10 @@ module correctness where
     pe-correct (SSnd e) {aenv = aenv} {env = env} env' eqenv with pe e aenv | ev (strip e) env | pe-correct e env' eqenv
     ... | e₁ , e₂ | e₁' , e₂' | A , B = B
     pe-correct {α} (SCase e e₁ e₂) {aenv = aenv} {env = env} env' eqenv with pe e aenv | ev (strip e) env | pe-correct e env' eqenv
-    ... | inj₁ c | inj₁ c' | L = pe-correct e₁ {aenv = cons c (env↑ refl aenv)}
+    ... | inj₁ c | inj₁ c' | L = pe-correct e₁ {aenv =  c ∷ (env↑ refl aenv)}
                                {env = c' ∷ env} env'
                                (cons (lem-equiv-env-lift-lift (refl env') eqenv) c c' L)
-    ... | inj₂ c | inj₂ c' | R = pe-correct e₂ {aenv = cons c (env↑ refl aenv)}
+    ... | inj₂ c | inj₂ c' | R = pe-correct e₂ {aenv = c ∷ (env↑ refl aenv)}
                                {env = c' ∷ env} env'
                                (cons (lem-equiv-env-lift-lift (refl env') eqenv) c c' R)
     ... | inj₂ c | inj₁ c' | ()
@@ -427,11 +427,11 @@ module correctness where
     pe-correct (DCase e e₁ e₂) {aenv = aenv} {env = env} env' eqenv with ev (pe e aenv) env' | ev (strip e) env | pe-correct e env' eqenv
     ... | inj₁ c | inj₁ c' | IA rewrite (→tl {x' = c} {y' = c'} (inj₁ c) (inj₁ c') IA refl refl) = 
       pe-correct e₁
-          {aenv = cons (EVar hd) (env↑ (extend refl) aenv)}
+          {aenv = (EVar hd) ∷ (env↑ (extend refl) aenv)}
           {env = c' ∷ env} (c' ∷ env') (cons (lem-equiv-env-lift-lift (extend c' (refl env')) eqenv) (EVar hd) c' refl)
     ... | inj₂ c | inj₂ c' | IA rewrite (→tr {x' = c} {y' = c'} (inj₂ c) (inj₂ c') IA refl refl) = 
       pe-correct e₂
-        {aenv = cons (EVar hd) (env↑ (extend refl) aenv)}
+        {aenv = (EVar hd) ∷ (env↑ (extend refl) aenv)}
         {env = c' ∷ env} (c' ∷ env')
         (cons (lem-equiv-env-lift-lift (extend c' (refl env')) eqenv)
          (EVar hd) c' refl)
