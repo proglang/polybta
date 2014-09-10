@@ -35,7 +35,7 @@ open TwoLevelTerms
 -----------------------
 --some remarks required 
 -----------------------
--- stripping of contexts
+-- stripping off contexts
 residual : ACtx → Ctx
 residual [] = []
 residual (Ann S _ ∷ xs) = residual xs
