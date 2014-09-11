@@ -12,6 +12,10 @@ open PE-DB
 open PE-PHOAS
 open DB→PHOAS
 
+open import Types
+open two-level-types-simp
+open import Terms
+open two-level-terms-DB&PHOAS
 -----------------------------------------------------
 --module "DB→PHOAS-Correct"
 --note: it includes
