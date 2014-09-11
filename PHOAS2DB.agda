@@ -6,6 +6,10 @@ open import Data.Bool
 open import Lib
 open Auxiliaries
 open DB&PHOAS
+open import Types
+open two-level-types-simp
+open import Terms
+open two-level-terms-DB&PHOAS
 
 --------------------------------
 --module "auxiliaries"
