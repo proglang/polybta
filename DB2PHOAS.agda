@@ -5,7 +5,10 @@ module DB2PHOAS where
 open import Lib
 open Auxiliaries
 open DB&PHOAS
-
+open import Types
+open two-level-types-simp
+open import Terms
+open two-level-terms-DB&PHOAS
 --------------------------------------
 --module "PE-DB" 
 --note: 
