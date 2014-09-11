@@ -745,8 +745,7 @@ module TwoLevelTerms-Simp-PSRI where
 -------------------------------------------------------------------------------
 --module "DB&PHOAS"
 --note: it includes
---1)DB terms and weakening lemmas;
---2)PHOAS terms.
+--1)weakening lemmas.
 -------------------------------------------------------------------------------
 module DB&PHOAS where
   open TwoLevelTypes-Simp public
