@@ -1,6 +1,6 @@
 -----------------------------------------------------
 --extended with liftable terms(higher order), pairs, 
---sums, iterators, and recursors
+--sums, iterators, and recursors.
 -----------------------------------------------------
 module PE-STLC-wft-full where
 open import Lib
