@@ -9,8 +9,6 @@ open Auxiliaries
 open TwoLevelTerms-Simp-PSRI
 open import Types
 open two-level-types-simp-ps
-open import Terms
-open two-level-terms-simp-lift-psri
 
 
 ----------------------------------------------
@@ -381,6 +379,11 @@ module correctness where
     --------------------------------------------------
     --[Equiv-Env] equivalence between two environments
     -------------------------------------------------- 
+    stripα = typeof
+
+    stripΔ : ACtx → Ctx
+    stripΔ = map stripα
+
     data Equiv-Env {Γ' : _} (env' : Env Γ') :
          ∀ {Δ} → let Γ = stripΔ Δ in
          AEnv Γ' Δ → Env Γ → Set where
@@ -511,6 +514,9 @@ module correctness where
     int↑-equiv {SSum α α₁} (inj₁ a) (inj₂ b) (extend v₁ ρ↝ρ') () 
     int↑-equiv {SSum α α₁} (inj₂ b) (inj₁ a) (extend v₁ ρ↝ρ') ()
 
+    strip-lookup : ∀ { α Δ} → α ∈ Δ → stripα α ∈ stripΔ Δ
+    strip-lookup hd = hd
+    strip-lookup (tl x) = tl (strip-lookup x)
 
     lem-equiv-lookup : ∀ {α Δ Γ'} → let Γ = stripΔ Δ in
                        { aenv : AEnv Γ' Δ } {env : Env Γ} →
@@ -587,6 +593,39 @@ module correctness where
     -----------------------------------
     --"natit-correct" equivalence lemma
     -----------------------------------
+    ---------------------------
+    --strip off two-level terms
+    ---------------------------
+    strip : ∀ {α Δ} → AExp Δ α → Exp (stripΔ Δ) (stripα α)
+    strip (Var x) = EVar (strip-lookup  x)
+    strip (SCst x) = ECst x
+    strip (SSuc e) = ESuc (strip e)
+    strip (SIt e e₀ e₁) = EIt (strip e) (strip e₀) (strip e₁)
+    strip (SRec v u n) = ERec (strip v) (strip u) (strip n)
+    strip (SAdd e e₁) = EAdd (strip e) (strip e₁)
+    strip (SLam e) = ELam (strip e)
+    strip (SApp e e₁)  = EApp (strip e) (strip e₁)
+    strip (DCst x)  = ECst x
+    strip (DSuc e) = ESuc (strip e)
+    strip (DIt e e₀ e₁) = EIt (strip e) (strip e₀) (strip e₁)
+    strip (DRec v u n) = ERec (strip v) (strip u) (strip n)
+    strip (DAdd e e₁) = EAdd (strip e) (strip e₁)
+    strip (DLam e)  = ELam (strip e)
+    strip (DApp e e₁)  = EApp (strip e) (strip e₁)
+    strip (SPair e e₁)  = EPair (strip e)  (strip e₁)
+    strip (SInl e)  = EInl (strip e)
+    strip (SInr e)  = EInr (strip e)
+    strip (SFst e)  = EFst (strip e)
+    strip (SSnd e)  = ESnd (strip e)
+    strip (SCase e e₁ e₂)  = ECase (strip e) (strip e₁) (strip e₂)
+    strip (DPair e e₁)  = EPair (strip e) (strip e₁)
+    strip (DInl e)  = EInl (strip e)
+    strip (DInr e)  = EInr (strip e)
+    strip (DFst e)  = EFst (strip e)
+    strip (DSnd e)  = ESnd (strip e)
+    strip (DCase e e₁ e₂)  = ECase (strip e) (strip e₁) (strip e₂)
+    strip (Lift lftbl e) = strip e
+
     natit-correct :
           ∀ {Δ} → 
           (n : _) →
