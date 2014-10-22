@@ -4,7 +4,7 @@
 --b)two-level language [AExp] is extended with lifting constructor 
 --  [Lift] of terms of static integer types
 ---------------------------------------------------------------
-module PE-STLC-wft-basic where
+module PE-STLC-basic where
 
 open import Lib
 open Auxiliaries
