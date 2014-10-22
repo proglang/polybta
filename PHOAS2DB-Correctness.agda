@@ -1,6 +1,6 @@
 module PHOAS2DB-Correctness where
 
---under construction
+--work in progress
 --translating from "PHOAS" terms to "De Bruijn" terms
 module PHOAS2DB where
 -- open import Data.Nat hiding  (_<_;_⊔_;_*_;equal)
