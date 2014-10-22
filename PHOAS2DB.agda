@@ -8,8 +8,94 @@ open Auxiliaries
 open DB&PHOAS
 open import Types
 open two-level-types-simp
-open import Terms
-open two-level-terms-DB&PHOAS
+
+
+--------------------------
+--two-level-terms-DB&PHOAS
+--------------------------
+-------------------
+--"De Bruijn" terms
+-------------------
+module DB-Terms where
+
+  data Exp (Γ : Ctx) : Type → Set where
+    EVar : ∀ {τ} → τ ∈ Γ → Exp Γ τ
+    ECst : ℕ → Exp Γ Num
+    EAdd : Exp Γ Num → Exp Γ Num -> Exp Γ Num
+    ELam : ∀ {τ τ'} → Exp (τ ∷ Γ) τ' → Exp Γ (Fun τ τ')
+    EApp : ∀ {τ τ'} → Exp Γ (Fun τ τ')  → Exp Γ τ → Exp Γ τ'
+   
+  module liftable where
+      
+    typeof : AType → Type
+    typeof SNum = Num
+    typeof (SFun α₁ α₂) = Fun (typeof α₁) (typeof α₂) 
+    typeof (D x) = x
+
+    -----------------------------------
+    --a less powerful lifting criterion
+    -----------------------------------
+    data liftable1 : AType → Set where
+      base : ∀ {x : Type} → liftable1 (D x)
+      Func : ∀ {α₁ α₂ : AType} 
+              → liftable1 α₁ → liftable1 α₂
+              → liftable1 (SFun α₁ α₂)
+
+    ---------------------------------------------
+    --[liftable] in [BTA9] without pairs and sums
+    ---------------------------------------------
+    mutual 
+      data Liftable2 : AType → Set where
+        D : ∀ τ → Liftable2 (D τ)
+        SCst : Liftable2 SNum
+        SFun : ∀ {α₁ α₂} → Liftable2⁻ α₁ → Liftable2 α₂ → Liftable2 (SFun α₁ α₂)
+
+      data Liftable2⁻ : AType → Set where
+        D : ∀ τ → Liftable2⁻ (D τ)
+        SFun : ∀ {α₁ α₂} → Liftable2 α₁ → Liftable2⁻ α₂ → Liftable2⁻ (SFun α₁ α₂)
+   
+  open liftable public
+
+
+  data AExp (Δ : ACtx) : AType → Set where
+    Var : ∀ {α} → α ∈ Δ → AExp Δ α
+    SCst : ℕ → AExp Δ SNum
+    SAdd : AExp Δ SNum → AExp Δ SNum → AExp Δ SNum
+    SLam : ∀ {α₁ α₂}   → AExp (α₁ ∷ Δ) α₂ → AExp Δ (SFun α₁ α₂)
+    SApp : ∀ {α₁ α₂}   → AExp Δ (SFun α₂ α₁) → AExp Δ α₂ → AExp Δ α₁
+    DCst : ℕ → AExp Δ (D Num)
+    DAdd : AExp Δ (D Num) → AExp Δ (D Num) → AExp Δ (D Num)
+    DLam : ∀ {τ₁ τ₂}   → AExp ((D τ₁) ∷ Δ) (D τ₂) → AExp Δ (D (Fun τ₁ τ₂))
+    DApp : ∀ {τ₁ τ₂}   → AExp Δ (D (Fun τ₂ τ₁)) → AExp Δ (D τ₂) → AExp Δ (D τ₁)
+    ↑    : ∀  {α} → liftable1 α → AExp Δ α → AExp Δ (D (typeof α))
+
+open DB-Terms public
+
+-------------------
+--"PHOAS" terms
+-------------------
+module PHOAS-Terms where
+  
+   data exp (var : Type → Set) : Type → Set where
+     EVar : ∀ {A} → var A → exp var A
+     ECst : ℕ → exp var Num
+     EAdd : exp var Num → exp var Num → exp var Num
+     ELam : ∀ {A B} → (var A → exp var B) → exp var (Fun A B)
+     EApp : ∀ {A B} → exp var (Fun A B) → exp var A → exp var B
+
+   data aexp (var : AType → Set) : AType → Set where
+     Var  : ∀ {A} → var A → aexp var A
+     SCst : ℕ → aexp var SNum
+     SAdd : aexp var SNum → aexp var SNum → aexp var SNum
+     SLam : ∀ {A B} → (var A → aexp var B) → aexp var (SFun A B)
+     SApp : ∀ {A B} → aexp var (SFun A B) → aexp var A → aexp var B
+     DCst : ℕ → aexp var (D Num)
+     DAdd : aexp var (D Num) → aexp var (D Num) → aexp var (D Num)
+     DLam : ∀ {a b} → (var (D a) → aexp var (D b)) → aexp var (D (Fun a b))
+     DApp : ∀ {a b} → aexp var (D (Fun a b)) → aexp var (D a) → aexp var (D b)
+     ↑    : ∀  {α} → liftable1 α → aexp var α → aexp var (D (typeof α))
+  
+open PHOAS-Terms public   
 
 --------------------------------
 --module "auxiliaries"
