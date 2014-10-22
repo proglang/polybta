@@ -33,8 +33,24 @@ open Auxiliaries
 open TwoLevelTerms
 open import Types
 open two-level-types
-open import Terms
-open two-level-terms
+
+
+
+-----------------
+--two-level-terms
+-----------------
+data Exp (Γ : Ctx) : Type → Set where
+  EVar : ∀ {τ} → τ ∈ Γ → Exp Γ τ
+  ECst : ℕ → Exp Γ TNum
+  ELam : ∀ {τ₁ τ₂} → Exp (τ₂ ∷ Γ) τ₁ → Exp Γ (TFun τ₂ τ₁)
+  EApp : ∀ {τ₁ τ₂} → Exp Γ (TFun τ₂ τ₁) → Exp Γ τ₂ → Exp Γ τ₁
+
+data AExp (Δ : ACtx) : AType → Set where
+  Var : ∀ {α} → α ∈ Δ → AExp Δ α
+  Cst : (bt : BT) → ℕ → AExp Δ (ATNum bt)
+  Lam : ∀ {α₁ α₂} (bt : BT) → wft (ATFun bt α₂ α₁) → AExp (α₂ ∷ Δ) α₁ → AExp Δ (ATFun bt α₂ α₁)
+  App : ∀ {α₁ α₂} (bt : BT) → wft (ATFun bt α₂ α₁) → AExp Δ (ATFun bt α₂ α₁) → AExp Δ α₂ → AExp Δ α₁
+  
 
 
 -----------------------
@@ -63,6 +79,28 @@ mutual
   ATInt' : Ctx → SType → Set
   ATInt' Γ SNum = ℕ
   ATInt' Γ (SFun y y') = ∀ {Γ'} → Γ ↝ Γ' → ATInt Γ' y → ATInt Γ' y'
+
+-------------------------------------------------------------
+--[exp↑] weakens the typing context [Γ] of the low-level term
+-------------------------------------------------------------
+elevate-var : ∀ {Γ Γ'} {τ : Type} → Γ ↝ Γ' → τ ∈ Γ → τ ∈ Γ'
+elevate-var refl τ∈Γ = τ∈Γ
+elevate-var (extend Γ↝Γ') τ∈Γ = tl (elevate-var Γ↝Γ' τ∈Γ)
+
+elevate-var2 : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → τ ∈ Γ → τ ∈ Γ'' 
+elevate-var2 (refl x) x₁ = elevate-var x x₁
+elevate-var2 (extend Γ↝Γ'↝Γ'') hd = hd
+elevate-var2 (extend Γ↝Γ'↝Γ'') (tl x) = tl (elevate-var2 Γ↝Γ'↝Γ'' x)
+
+elevate : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → Exp Γ τ → Exp Γ'' τ
+elevate Γ↝Γ'↝Γ'' (EVar x) = EVar (elevate-var2 Γ↝Γ'↝Γ'' x)
+elevate Γ↝Γ'↝Γ'' (ECst x) = ECst x
+elevate Γ↝Γ'↝Γ'' (ELam e) = ELam (elevate (extend Γ↝Γ'↝Γ'') e)
+elevate Γ↝Γ'↝Γ'' (EApp e e₁) = EApp (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
+
+exp↑ : ∀ {τ τ' Γ} → Exp Γ τ' → Exp (τ ∷ Γ) τ'
+exp↑ e = elevate (refl (extend refl)) e 
+  
 
 ----------------------------------------------------------
 --[int↑] weakens the typing context [Γ] of the target term.
