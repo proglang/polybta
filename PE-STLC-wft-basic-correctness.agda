@@ -11,8 +11,7 @@ open TwoLevelTypes-Simp
 open TwoLevelTerms-Simp-Lift
 open import Types
 open two-level-types-simp
-open import Terms
-open two-level-terms-simp-lift
+
 
 ----------------------------------------------
 --module "EvaBase"
@@ -241,6 +240,11 @@ module correctness where
      lem-lift-equiv {D x} va v (extend v₁ env↝env') eq
        rewrite sym eq = sym (lem-elevate-≡ (refl (extend v₁ env↝env')) va)
 
+
+     strip-lookup : ∀ { α Δ} → α ∈ Δ → stripα α ∈ stripΔ Δ
+     strip-lookup hd = hd
+     strip-lookup (tl x) = tl (strip-lookup x)
+
      lem-equiv-lookup : ∀ {α Δ Γ'} → let Γ = stripΔ Δ in
                         { aenv : AEnv Γ' Δ } {env : Env Γ} →
                         (env' : Env Γ') →
@@ -282,6 +286,19 @@ module correctness where
     open Equiv
     open Equiv-Elevate
    
+    strip : ∀ {α Δ} → AExp Δ α → Exp (stripΔ Δ) (stripα α)
+    strip (Var x) = EVar (strip-lookup x)
+    strip (SCst x) = ECst x
+    strip (SAdd e f) = EAdd (strip e) (strip f)
+    strip (SLam e) = ELam (strip e)
+    strip (SApp e f) = EApp (strip e) (strip f)
+    strip (DCst x) = ECst x
+    strip (DAdd e f) = EAdd (strip e) (strip f)
+    strip (DLam e) = ELam (strip e)
+    strip (DApp e f) = EApp (strip e) (strip f)
+    strip (Lift e) = strip e
+      
+
     pe-correct : ∀ { α Δ Γ' } → (e : AExp Δ α) →
                  let Γ = stripΔ Δ in 
                  {aenv : AEnv Γ' Δ} → {env : Env Γ} → 
