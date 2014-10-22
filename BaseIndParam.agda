@@ -2,6 +2,7 @@
    simply typed lambda calculus with nats, addition, sums and products -}
 module BaseIndParam where
 open import Lib
+open Auxiliaries
 open import Data.Unit using (⊤; tt)
 open import Data.Bool
 
