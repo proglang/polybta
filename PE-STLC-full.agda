@@ -2,7 +2,7 @@
 --extended with liftable terms(higher order), pairs, 
 --sums, iterators, and recursors.
 -----------------------------------------------------
-module PE-STLC-wft-full where
+module PE-STLC-full where
 open import Lib
 open Auxiliaries
 open TwoLevelTerms-Simp-PSRI
