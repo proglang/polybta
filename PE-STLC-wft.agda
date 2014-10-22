@@ -25,7 +25,7 @@
 --  f)target languages:
 --    meta language + base language 
 
-module PE-STLC where
+module PE-STLC-wft where
 
 open import Lib 
 open TwoLevelTypes
