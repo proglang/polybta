@@ -21,7 +21,12 @@ open import Category.Functor public
 --      files
 --------------------------------
 module Auxiliaries where
-  open import Terms
+
+
+  infix 4 _∈_
+  data _∈_ {A : Set} : A → List A → Set where
+    hd : ∀ {x xs} → x ∈ (x ∷ xs)
+    tl : ∀ {x y xs} → x ∈ xs → x ∈ (y ∷ xs)
 
   mapIdx : {A B : Set} → (f : A → B) →
            {x : A} {xs : List A} → x ∈ xs → f x ∈ map f xs
@@ -55,6 +60,13 @@ module Auxiliaries where
     lem-↝-trans : ∀ {A : Set}{Γ Γ' Γ'' : List A} → Γ ↝ Γ' → Γ' ↝ Γ'' → Γ ↝ Γ''
     lem-↝-trans Γ↝Γ' refl = Γ↝Γ'
     lem-↝-trans Γ↝Γ' (extend Γ'↝Γ'') = extend (lem-↝-trans Γ↝Γ' Γ'↝Γ'')
+
+
+    lem-↝-refl-id : ∀ {A : Set} {Γ Γ' : List A} →
+                      (Γ↝Γ' : Γ ↝ Γ') →
+                      Γ↝Γ' ≡ (lem-↝-trans refl Γ↝Γ')  
+    lem-↝-refl-id refl = refl
+    lem-↝-refl-id (extend Γ↝Γ') = cong extend (lem-↝-refl-id Γ↝Γ')
 
     _↝-∷_ : {A : Set} (x : A) (l : List A) → l ↝ (x ∷ l)
     x ↝-∷ l = extend refl
@@ -134,32 +146,7 @@ module TwoLevelTerms where
   open Auxiliaries
   open import Types
   open two-level-types
-  open import Terms
-  open two-level-terms 
-
-
-  module Weakening where
-    
-    elevate-var : ∀ {Γ Γ'} {τ : Type} → Γ ↝ Γ' → τ ∈ Γ → τ ∈ Γ'
-    elevate-var refl τ∈Γ = τ∈Γ
-    elevate-var (extend Γ↝Γ') τ∈Γ = tl (elevate-var Γ↝Γ' τ∈Γ)
-
-    elevate-var2 : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → τ ∈ Γ → τ ∈ Γ'' 
-    elevate-var2 (refl x) x₁ = elevate-var x x₁
-    elevate-var2 (extend Γ↝Γ'↝Γ'') hd = hd
-    elevate-var2 (extend Γ↝Γ'↝Γ'') (tl x) = tl (elevate-var2 Γ↝Γ'↝Γ'' x)
-
-    elevate : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → Exp Γ τ → Exp Γ'' τ
-    elevate Γ↝Γ'↝Γ'' (EVar x) = EVar (elevate-var2 Γ↝Γ'↝Γ'' x)
-    elevate Γ↝Γ'↝Γ'' (ECst x) = ECst x
-    elevate Γ↝Γ'↝Γ'' (ELam e) = ELam (elevate (extend Γ↝Γ'↝Γ'') e)
-    elevate Γ↝Γ'↝Γ'' (EApp e e₁) = EApp (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
-
-    exp↑ : ∀ {τ τ' Γ} → Exp Γ τ' → Exp (τ ∷ Γ) τ'
-    exp↑ e = elevate (refl (extend refl)) e 
-  
-  open Weakening public
-
+ 
 -----------------------------------
 --module "TwoLevelTypes-Simp"
 --note: well-formedness restriction
@@ -192,30 +179,7 @@ module TwoLevelTerms-Simp where
   open Auxiliaries
   open import Types
   open two-level-types-simp
-  open import Terms
-  open two-level-terms-simp
-
-
   
-  module Weakening where
-    
-    elevate-var : ∀ {Γ Γ'} {τ : Type} → Γ ↝ Γ' → τ ∈ Γ → τ ∈ Γ'
-    elevate-var refl τ∈Γ = τ∈Γ
-    elevate-var (extend Γ↝Γ') τ∈Γ = tl (elevate-var Γ↝Γ' τ∈Γ)
-
-    elevate-var2 : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → τ ∈ Γ → τ ∈ Γ'' 
-    elevate-var2 (refl x) x₁ = elevate-var x x₁
-    elevate-var2 (extend Γ↝Γ'↝Γ'') hd = hd
-    elevate-var2 (extend Γ↝Γ'↝Γ'') (tl x) = tl (elevate-var2 Γ↝Γ'↝Γ'' x)
-
-    elevate : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → Exp Γ τ → Exp Γ'' τ
-    elevate Γ↝Γ'↝Γ'' (EVar x) = EVar (elevate-var2 Γ↝Γ'↝Γ'' x)
-    elevate Γ↝Γ'↝Γ'' (ECst x) = ECst x
-    elevate Γ↝Γ'↝Γ'' (EAdd e e₁) = EAdd (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
-    elevate Γ↝Γ'↝Γ'' (ELam e) = ELam (elevate (extend Γ↝Γ'↝Γ'') e)
-    elevate Γ↝Γ'↝Γ'' (EApp e e₁) = EApp (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
-
-  open Weakening public
 
  ----------------------------------
 --module "TwoLevelTerms-Simp-lift"
@@ -227,35 +191,7 @@ module TwoLevelTerms-Simp-Lift where
   open Auxiliaries
   open import Types
   open two-level-types-simp
-  open import Terms
-  open two-level-terms-simp-lift
-
  
-  
-  
-  module Weakening where
-    
-    elevate-var : ∀ {Γ Γ'} {τ : Type} → Γ ↝ Γ' → τ ∈ Γ → τ ∈ Γ'
-    elevate-var refl τ∈Γ = τ∈Γ
-    elevate-var (extend Γ↝Γ') τ∈Γ = tl (elevate-var Γ↝Γ' τ∈Γ)
-
-    elevate-var2 : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → τ ∈ Γ → τ ∈ Γ'' 
-    elevate-var2 (refl x) x₁ = elevate-var x x₁
-    elevate-var2 (extend Γ↝Γ'↝Γ'') hd = hd
-    elevate-var2 (extend Γ↝Γ'↝Γ'') (tl x) = tl (elevate-var2 Γ↝Γ'↝Γ'' x)
-
-    elevate : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → Exp Γ τ → Exp Γ'' τ
-    elevate Γ↝Γ'↝Γ'' (EVar x) = EVar (elevate-var2 Γ↝Γ'↝Γ'' x)
-    elevate Γ↝Γ'↝Γ'' (ECst x) = ECst x
-    elevate Γ↝Γ'↝Γ'' (EAdd e e₁) = EAdd (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
-    elevate Γ↝Γ'↝Γ'' (ELam e) = ELam (elevate (extend Γ↝Γ'↝Γ'') e)
-    elevate Γ↝Γ'↝Γ'' (EApp e e₁) = EApp (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
-
- 
-  
-  open Weakening public
-
-
   module Correctness where
 
     ---------------------------
@@ -271,36 +207,6 @@ module TwoLevelTerms-Simp-Lift where
     stripΔ : ACtx → Ctx
     stripΔ = map stripα
 
-    strip-lookup : ∀ { α Δ} → α ∈ Δ → stripα α ∈ stripΔ Δ
-    strip-lookup hd = hd
-    strip-lookup (tl x) = tl (strip-lookup x)
-      
-    ---------------------------
-    --strip off two-level terms
-    ---------------------------
-    strip : ∀ {α Δ} → AExp Δ α → Exp (stripΔ Δ) (stripα α)
-    strip (Var x) = EVar (strip-lookup x)
-    strip (SCst x) = ECst x
-    strip (SAdd e f) = EAdd (strip e) (strip f)
-    strip (SLam e) = ELam (strip e)
-    strip (SApp e f) = EApp (strip e) (strip f)
-    strip (DCst x) = ECst x
-    strip (DAdd e f) = EAdd (strip e) (strip f)
-    strip (DLam e) = ELam (strip e)
-    strip (DApp e f) = EApp (strip e) (strip f)
-    strip (Lift e) = strip e
-      
-    liftE : ∀ {τ Γ Γ'} → Γ ↝ Γ' → Exp Γ τ → Exp Γ' τ
-    liftE Γ↝Γ' e = elevate (refl Γ↝Γ') e
-
-    stripLift : ∀ {α Δ Γ} → stripΔ Δ ↝ Γ → AExp Δ α  → Exp Γ (stripα α)
-    stripLift Δ↝Γ = liftE Δ↝Γ ∘ strip
-
-    lem-↝-refl-id : ∀ {A : Set} {Γ Γ' : List A} →
-                      (Γ↝Γ' : Γ ↝ Γ') →
-                      Γ↝Γ' ≡ (lem-↝-trans refl Γ↝Γ')  
-    lem-↝-refl-id refl = refl
-    lem-↝-refl-id (extend Γ↝Γ') = cong extend (lem-↝-refl-id Γ↝Γ')
 
   open Correctness public  
  
@@ -318,7 +224,6 @@ module TwoLevelTerms-Simp-Lift where
 --d)weakening lemmas.
 ----------------------------------- 
 module TwoLevelTerms-Simp-PS where
-  open import Terms  
   open Auxiliaries
   open import Types
   open two-level-types-simp-ps
@@ -615,11 +520,6 @@ module TwoLevelTerms-Simp-PS where
     stripLift : ∀ {α Δ Γ} → stripΔ Δ ↝ Γ → AExp Δ α  → Exp Γ (stripα α)
     stripLift Δ↝Γ = exp↑ Δ↝Γ ∘ strip
 
-    lem-↝-refl-id : ∀ {A : Set} {Γ Γ' : List A} →
-                      (Γ↝Γ' : Γ ↝ Γ') →
-                      Γ↝Γ' ≡ (lem-↝-trans refl Γ↝Γ')  
-    lem-↝-refl-id refl = refl
-    lem-↝-refl-id (extend Γ↝Γ') = cong extend (lem-↝-refl-id Γ↝Γ')
 
   open Correctness public 
 
@@ -633,8 +533,7 @@ module TwoLevelTerms-Simp-PSRI where
   open Auxiliaries
   open import Types
   open two-level-types-simp-ps  
-  open import Terms
-  open two-level-terms-simp-lift-psri
+
 
   ----------------------------------
   --helper for evaluating recursors.
@@ -650,96 +549,6 @@ module TwoLevelTerms-Simp-PSRI where
   natit zero v0 vs = v0
   natit (suc n) v0 vs = vs (natit n v0 vs)
   
-  module Weakening where
-    
-    elevate-var : ∀ {Γ Γ'} {τ : Type} → Γ ↝ Γ' → τ ∈ Γ → τ ∈ Γ'
-    elevate-var refl x = x
-    elevate-var (extend Γ↝Γ') x = tl (elevate-var Γ↝Γ' x)
-
-    elevate-var2 : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → τ ∈ Γ → τ ∈ Γ''
-    elevate-var2 (refl x) x₁ = elevate-var x x₁
-    elevate-var2 (extend Γ↝Γ'↝Γ'') hd = hd
-    elevate-var2 (extend Γ↝Γ'↝Γ'') (tl x) = tl (elevate-var2 Γ↝Γ'↝Γ'' x)
-
-    elevate : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → Exp Γ τ → Exp Γ'' τ
-    elevate Γ↝Γ'↝Γ'' (EVar x) = EVar (elevate-var2 Γ↝Γ'↝Γ'' x)
-    elevate Γ↝Γ'↝Γ'' (ECst x) = ECst x
-    elevate Γ↝Γ'↝Γ'' (ESuc e) = ESuc (elevate Γ↝Γ'↝Γ'' e)
-    elevate Γ↝Γ'↝Γ'' (EIt e e₀ e₁) = EIt (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₀) (elevate Γ↝Γ'↝Γ'' e₁)
-    elevate Γ↝Γ'↝Γ'' (ERec v u n) = ERec (elevate Γ↝Γ'↝Γ'' v) (elevate Γ↝Γ'↝Γ'' u) (elevate Γ↝Γ'↝Γ'' n)
-    elevate Γ↝Γ'↝Γ'' (EAdd e e₁) = EAdd (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
-    elevate Γ↝Γ'↝Γ'' (ELam e) = ELam (elevate (extend Γ↝Γ'↝Γ'') e)
-    elevate Γ↝Γ'↝Γ'' (EApp e e₁) = EApp (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
-    elevate Γ↝Γ'↝Γ'' (EPair e e₁) =  EPair (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
-    elevate Γ↝Γ'↝Γ'' (EInl e) = EInl (elevate Γ↝Γ'↝Γ'' e)
-    elevate Γ↝Γ'↝Γ'' (EInr e) = EInr (elevate Γ↝Γ'↝Γ'' e)
-    elevate Γ↝Γ'↝Γ'' (EFst e) = EFst (elevate Γ↝Γ'↝Γ'' e)
-    elevate Γ↝Γ'↝Γ'' (ESnd e) = ESnd (elevate Γ↝Γ'↝Γ'' e)
-    elevate Γ↝Γ'↝Γ'' (ECase c e₁ e₂) = ECase (elevate Γ↝Γ'↝Γ'' c) (elevate (extend Γ↝Γ'↝Γ'') e₁) (elevate (extend Γ↝Γ'↝Γ'') e₂)
-
-    exp↑ : ∀ {τ τ' Γ} → Exp Γ τ' → Exp (τ ∷ Γ) τ'
-    exp↑ e = elevate (refl (extend refl)) e
-  
-  open Weakening public
-
-
-  module Correctness where
-
-    ---------------------------
-    --strip off two-level types
-    ---------------------------
-    stripα = typeof
-
-    stripΔ : ACtx → Ctx
-    stripΔ = map stripα
-
-    strip-lookup : ∀ { α Δ} → α ∈ Δ → stripα α ∈ stripΔ Δ
-    strip-lookup hd = hd
-    strip-lookup (tl x) = tl (strip-lookup x)
-      
-    ---------------------------
-    --strip off two-level terms
-    ---------------------------
-    strip : ∀ {α Δ} → AExp Δ α → Exp (stripΔ Δ) (stripα α)
-    strip (Var x) = EVar (strip-lookup  x)
-    strip (SCst x) = ECst x
-    strip (SSuc e) = ESuc (strip e)
-    strip (SIt e e₀ e₁) = EIt (strip e) (strip e₀) (strip e₁)
-    strip (SRec v u n) = ERec (strip v) (strip u) (strip n)
-    strip (SAdd e e₁) = EAdd (strip e) (strip e₁)
-    strip (SLam e) = ELam (strip e)
-    strip (SApp e e₁)  = EApp (strip e) (strip e₁)
-    strip (DCst x)  = ECst x
-    strip (DSuc e) = ESuc (strip e)
-    strip (DIt e e₀ e₁) = EIt (strip e) (strip e₀) (strip e₁)
-    strip (DRec v u n) = ERec (strip v) (strip u) (strip n)
-    strip (DAdd e e₁) = EAdd (strip e) (strip e₁)
-    strip (DLam e)  = ELam (strip e)
-    strip (DApp e e₁)  = EApp (strip e) (strip e₁)
-    strip (SPair e e₁)  = EPair (strip e)  (strip e₁)
-    strip (SInl e)  = EInl (strip e)
-    strip (SInr e)  = EInr (strip e)
-    strip (SFst e)  = EFst (strip e)
-    strip (SSnd e)  = ESnd (strip e)
-    strip (SCase e e₁ e₂)  = ECase (strip e) (strip e₁) (strip e₂)
-    strip (DPair e e₁)  = EPair (strip e) (strip e₁)
-    strip (DInl e)  = EInl (strip e)
-    strip (DInr e)  = EInr (strip e)
-    strip (DFst e)  = EFst (strip e)
-    strip (DSnd e)  = ESnd (strip e)
-    strip (DCase e e₁ e₂)  = ECase (strip e) (strip e₁) (strip e₂)
-    strip (Lift lftbl e) = strip e
-
-    -- stripLift : ∀ {α Δ Γ} → stripΔ Δ ↝ Γ → AExp Δ α  → Exp Γ (stripα α)
-    -- stripLift Δ↝Γ = exp↑ Δ↝Γ ∘ strip
-
-    lem-↝-refl-id : ∀ {A : Set} {Γ Γ' : List A} →
-                      (Γ↝Γ' : Γ ↝ Γ') →
-                      Γ↝Γ' ≡ (lem-↝-trans refl Γ↝Γ')  
-    lem-↝-refl-id refl = refl
-    lem-↝-refl-id (extend Γ↝Γ') = cong extend (lem-↝-refl-id Γ↝Γ')
-
-  open Correctness public 
 
 
 -------------------------------------------------------------------------------
@@ -755,7 +564,7 @@ module DB&PHOAS where
   --note: some weakening lemmas involving 
   --      "De Bruijn" terms
   -------------------------
-  module DB-Terms where
+  module DB-terms where
     open Auxiliaries
     open import Types
     open two-level-types-simp
@@ -763,31 +572,8 @@ module DB&PHOAS where
     open two-level-terms-DB&PHOAS
   
     
-    module Weakening where
-      
-       elevate-var : ∀ {Γ Γ'} {τ : Type} → Γ ↝ Γ' → τ ∈ Γ → τ ∈ Γ'
-       elevate-var refl τ∈Γ = τ∈Γ
-       elevate-var (extend Γ↝Γ') τ∈Γ = tl (elevate-var Γ↝Γ' τ∈Γ)
 
-       elevate-var2 : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → τ ∈ Γ → τ ∈ Γ'' 
-       elevate-var2 (refl x) x₁ = elevate-var x x₁
-       elevate-var2 (extend Γ↝Γ'↝Γ'') hd = hd
-       elevate-var2 (extend Γ↝Γ'↝Γ'') (tl x) = tl (elevate-var2 Γ↝Γ'↝Γ'' x)
-
-       elevate : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → Exp Γ τ → Exp Γ'' τ
-       elevate Γ↝Γ'↝Γ'' (EVar x) = EVar (elevate-var2 Γ↝Γ'↝Γ'' x)
-       elevate Γ↝Γ'↝Γ'' (ECst x) = ECst x
-       elevate Γ↝Γ'↝Γ'' (EAdd e e₁) = EAdd (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
-       elevate Γ↝Γ'↝Γ'' (ELam e) = ELam (elevate (extend Γ↝Γ'↝Γ'') e)
-       elevate Γ↝Γ'↝Γ'' (EApp e e₁) = EApp (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
-
-       exp↑ : ∀ {τ Γ Γ'} → Γ ↝ Γ' → Exp Γ τ → Exp Γ' τ
-       exp↑ Γ↝Γ' e = elevate (refl Γ↝Γ') e
-
-
-    
-    open Weakening public
-  open DB-Terms public
+  open DB-terms public
  
 
     
