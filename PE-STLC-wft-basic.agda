@@ -28,8 +28,7 @@ ATInt Γ (SNum) = ℕ
 ATInt Γ (SFun α₁ α₂) = ∀ {Γ'} → Γ ↝ Γ' → (ATInt Γ' α₁ → ATInt Γ' α₂)
 ATInt Γ (D σ) = Exp Γ σ
   
-
------------------------------------------------------------
+--------------------
 --[int↑] weakens the typing context [Γ] of the target term.
 -----------------------------------------------------------
 int↑ : ∀ {Γ Γ'} α → Γ ↝ Γ' → ATInt Γ α → ATInt Γ' α 
@@ -44,6 +43,7 @@ int↑ (D x₁) Γ↝Γ' v = elevate (refl Γ↝Γ') v
 data AEnv (Γ : Ctx) : ACtx → Set where
   [] : AEnv Γ []
   _∷_ : ∀ {Δ} {α : AType} → ATInt Γ α → AEnv Γ Δ → AEnv Γ (α ∷ Δ)
+
 
 ----------------------------------------------------------
 --[env↑] weakens the typing context [Γ] of the environment
@@ -78,10 +78,11 @@ pe : ∀ {α Δ Γ} → AExp Δ α → AEnv Γ Δ → ATInt Γ α
 pe (Var x) env = lookup env x 
 pe (SCst x) env = x
 pe (SAdd e₁ e₂) env = pe e₁ env + pe e₂ env
-pe (SLam {α} e) env = λ Γ↝Γ' → λ y → pe e (y ∷ (env↑ Γ↝Γ' env)) 
+pe (SLam {α} e) env = λ Γ↝Γ' → λ y → pe e (y ∷ env↑ Γ↝Γ' env) 
 pe (SApp e₁ e₂) env = ((pe e₁ env) refl) (pe e₂ env)
 pe (DCst x) env = ECst x
 pe (DAdd e e₁) env = EAdd (pe e env) (pe e₁ env)
 pe (DLam {σ} {α₂} e) env = ELam (pe  e (consD α₂ env))
 pe (DApp e e₁) env = EApp (pe e env) (pe e₁ env)
 pe (Lift e) env = ECst (pe e env) 
+
