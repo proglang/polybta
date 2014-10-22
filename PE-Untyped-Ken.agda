@@ -27,8 +27,22 @@ open TwoLevelTypes
 open Auxiliaries
 open import Types
 open two-level-types
-open import Terms
-open two-level-terms
+
+
+-----------------
+--two-level-terms
+-----------------
+data Exp (Γ : Ctx) : Type → Set where
+  EVar : ∀ {τ} → τ ∈ Γ → Exp Γ τ
+  ECst : ℕ → Exp Γ TNum
+  ELam : ∀ {τ₁ τ₂} → Exp (τ₂ ∷ Γ) τ₁ → Exp Γ (TFun τ₂ τ₁)
+  EApp : ∀ {τ₁ τ₂} → Exp Γ (TFun τ₂ τ₁) → Exp Γ τ₂ → Exp Γ τ₁
+
+data AExp (Δ : ACtx) : AType → Set where
+  Var : ∀ {α} → α ∈ Δ → AExp Δ α
+  Cst : (bt : BT) → ℕ → AExp Δ (ATNum bt)
+  Lam : ∀ {α₁ α₂} (bt : BT) → wft (ATFun bt α₂ α₁) → AExp (α₂ ∷ Δ) α₁ → AExp Δ (ATFun bt α₂ α₁)
+  App : ∀ {α₁ α₂} (bt : BT) → wft (ATFun bt α₂ α₁) → AExp Δ (ATFun bt α₂ α₁) → AExp Δ α₂ → AExp Δ α₁
 
 ------------------------------------------
 --base-language [Exp']:
