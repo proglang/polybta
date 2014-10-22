@@ -1,11 +1,10 @@
 -- Partial evaluation of the simply typed lambda calculus with a fixpoint combinator.
--- Work in progress
+-- work in   progress
 module PE-STLCFix where
 
 open import Data.Nat
 open import Lib
 open Auxiliaries
-open import Terms
 open import Relation.Binary 
 open DecTotalOrder decTotalOrder public using () renaming (refl to ≤-refl) 
 
