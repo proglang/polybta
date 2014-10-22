@@ -2,9 +2,9 @@
 --correctness proof of partial evaluation of liftable terms of
 --static integer type 
 ---------------------------------------------------------------
-module PE-STLC-wft-basic-correctness where
+module PE-STLC-basic-correctness where
 
-open import PE-STLC-wft-basic
+open import PE-STLC-basic
 open import Lib
 open Auxiliaries
 open TwoLevelTypes-Simp
