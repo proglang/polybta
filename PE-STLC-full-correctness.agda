@@ -1,9 +1,9 @@
 --------------------------------------------------------------------
 --correctness proof of partial evaluation of recursors and iterators
 --------------------------------------------------------------------
-module PE-STLC-wft-full-correctness where
+module PE-STLC-full-correctness where
 open import Data.Empty
-open import PE-STLC-wft-full
+open import PE-STLC-full
 open import Lib
 open Auxiliaries
 open TwoLevelTerms-Simp-PSRI
