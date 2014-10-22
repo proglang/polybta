@@ -8,8 +8,89 @@ open Auxiliaries
 open TwoLevelTerms-Simp-PSRI
 open import Types
 open two-level-types-simp-ps
-open import Terms
-open two-level-terms-simp-lift-psri
+
+
+
+--------------------------------
+--two-level-terms-simp-lift-psri
+--------------------------------
+-------------------------------
+--a simple "liftable criterion"
+-------------------------------
+mutual 
+  data Liftable : AType → Set where
+    D : ∀ τ → Liftable (D τ)
+    SCst : Liftable SNum
+    SSum : ∀ {α₁ α₂} → Liftable α₁ → Liftable α₂ → Liftable (SSum α₁ α₂)
+    SPrd : ∀ {α₁ α₂} → Liftable α₁ → Liftable α₂ → Liftable (SPrd α₁ α₂)
+    SFun : ∀ {α₁ α₂} → Liftable⁻ α₁ → Liftable α₂ → Liftable (SFun α₁ α₂)
+
+  data Liftable⁻ : AType → Set where
+    D : ∀ τ → Liftable⁻ (D τ)
+    SPrd : ∀ {α₁ α₂} → Liftable⁻ α₁ → Liftable⁻ α₂ → Liftable⁻ (SPrd α₁ α₂)
+    SFun : ∀ {α₁ α₂} → Liftable α₁ → Liftable⁻ α₂ → Liftable⁻ (SFun α₁ α₂)
+
+--------------------------
+--some auxiliary functions
+--------------------------
+typeof : AType → Type
+typeof SNum = Num
+typeof (SFun α₁ α₂) = Fun (typeof α₁) (typeof α₂) 
+typeof (D x) = x
+typeof (SPrd α₁ α₂) = Prd (typeof α₁) (typeof α₂)
+typeof (SSum α₁ α₂) = Sum (typeof α₁) (typeof α₂)
+    
+data Exp (Γ : Ctx) : Type → Set where
+  EVar : ∀ {τ} → τ ∈ Γ → Exp Γ τ
+  ECst : ℕ → Exp Γ Num
+  ESuc : Exp Γ Num → Exp Γ Num
+  EIt  : ∀ {τ} → Exp Γ Num → Exp Γ τ → Exp Γ (Fun τ τ) → Exp Γ τ
+  ERec : ∀ {τ} → Exp Γ τ → Exp Γ (Fun Num (Fun τ τ)) → Exp Γ Num
+                  → Exp Γ τ
+  EAdd  : Exp Γ Num → Exp Γ Num → Exp Γ Num
+  ELam  : ∀ {τ τ'} → Exp (τ ∷ Γ) τ' → Exp Γ (Fun τ τ')
+  EApp  : ∀ {τ τ'} → Exp Γ (Fun τ τ') → Exp Γ τ → Exp Γ τ'
+  EPair : ∀ {τ τ'} → Exp Γ τ → Exp Γ τ' → Exp Γ (Prd τ τ')
+  EFst  :  ∀ {τ τ'} → Exp Γ (Prd τ τ') → Exp Γ τ
+  ESnd  :  ∀ {τ τ'} → Exp Γ (Prd τ τ') → Exp Γ τ'
+  EInl  :  ∀ {τ τ'} → Exp Γ τ → Exp Γ (Sum τ τ')
+  EInr  :  ∀ {τ τ'} → Exp Γ τ' → Exp Γ (Sum τ τ')
+  ECase : ∀ {τ τ' τ''} → Exp Γ (Sum τ τ') →
+                Exp (τ ∷ Γ) τ'' → Exp (τ' ∷ Γ) τ'' → Exp Γ τ''
+
+data AExp (Δ : ACtx) : AType → Set where
+  Var  : ∀ {α} → α ∈ Δ → AExp Δ α
+  SCst : ℕ → AExp Δ SNum
+  SSuc : AExp Δ SNum → AExp Δ SNum
+  SIt  : ∀ {α} → AExp Δ SNum → AExp Δ α → AExp Δ (SFun α α) → AExp Δ α
+  SRec : ∀ {α} → AExp Δ α → AExp Δ (SFun SNum (SFun α α)) → AExp Δ SNum 
+                 → AExp Δ α
+  SAdd : AExp Δ SNum → AExp Δ SNum → AExp Δ SNum
+  SLam : ∀ {α₁ α₂} → AExp (α₁ ∷ Δ) α₂ → AExp Δ (SFun α₁ α₂)
+  SApp : ∀ {α₁ α₂} → AExp Δ (SFun α₁ α₂) → AExp Δ α₁ → AExp Δ α₂
+  DCst : ℕ → AExp Δ (D Num)
+  DSuc : AExp Δ (D Num) → AExp Δ (D Num)
+  DIt  : ∀ {σ} → AExp Δ (D Num) → AExp Δ (D σ) → AExp Δ (D (Fun σ σ)) → AExp Δ (D σ)
+  DRec : ∀ {σ} → AExp Δ (D σ) → AExp Δ (D (Fun Num (Fun σ σ))) → AExp Δ (D Num) 
+                 → AExp Δ (D σ)
+  DAdd  : AExp Δ (D Num) → AExp Δ (D Num) → AExp Δ (D Num)
+  DLam  : ∀ {σ₁ σ₂} → AExp ((D σ₁) ∷ Δ) (D σ₂) → AExp Δ (D (Fun σ₁ σ₂))
+  DApp  : ∀ {σ₁ σ₂} → AExp Δ (D (Fun σ₂ σ₁)) → AExp Δ (D σ₂) → AExp Δ (D σ₁)
+  SPair : ∀ {α₁ α₂} → AExp Δ α₁ → AExp Δ α₂ → AExp Δ (SPrd α₁ α₂)
+  SInl  : ∀ {α₁ α₂} → AExp Δ α₁ → AExp Δ (SSum α₁ α₂)
+  SInr  : ∀ {α₁ α₂} → AExp Δ α₂ → AExp Δ (SSum α₁ α₂)
+  SFst  : ∀ {α₁ α₂} → AExp Δ (SPrd α₁ α₂) → AExp Δ α₁
+  SSnd  : ∀ {α₁ α₂} → AExp Δ (SPrd α₁ α₂) → AExp Δ α₂
+  SCase : ∀ {α₁ α₂ α₃} → AExp Δ (SSum α₁ α₂) → AExp (α₁ ∷ Δ) α₃ → AExp (α₂ ∷ Δ) α₃ → AExp Δ α₃
+  DPair : ∀ {σ₁ σ₂} → AExp Δ (D σ₁) → AExp Δ (D σ₂) → AExp Δ (D (Prd σ₁ σ₂))
+  DInl  : ∀ {σ₁ σ₂} → AExp Δ (D σ₁) → AExp Δ (D (Sum σ₁ σ₂))
+  DInr  : ∀ {σ₁ σ₂} → AExp Δ (D σ₂) → AExp Δ (D (Sum σ₁ σ₂))
+  DFst  : ∀ {σ₁ σ₂} → AExp Δ (D (Prd σ₁ σ₂)) → AExp Δ (D σ₁)
+  DSnd  : ∀ {σ₁ σ₂} → AExp Δ (D (Prd σ₁ σ₂)) → AExp Δ (D σ₂)
+  DCase : ∀ {σ₁ σ₂ σ₃} → AExp Δ (D (Sum σ₁ σ₂)) → AExp ((D σ₁) ∷ Δ) (D σ₃) → AExp ((D σ₂) ∷ Δ) (D σ₃) → AExp Δ (D σ₃) 
+  Lift  : {α : AType} →
+              Liftable α → AExp Δ α  → AExp Δ (D (typeof α))
+
 
 ----------------------------------------------------------
 --[ATInt] as the interpreter for the types of the 
@@ -25,6 +106,37 @@ ATInt Γ (SFun α₁ α₂)  =
   ∀ {Γ'} → Γ ↝ Γ' → ATInt Γ' α₁ → ATInt Γ' α₂
 ATInt Γ (SPrd α₁ α₂) = ATInt Γ α₁ × ATInt Γ α₂
 ATInt Γ (SSum α₁ α₂) = (ATInt Γ α₁) ⊎ (ATInt Γ α₂)
+
+-------------------------------------------------------------
+--[exp↑] weakens the typing context [Γ] of the low-level term
+-------------------------------------------------------------
+elevate-var : ∀ {Γ Γ'} {τ : Type} → Γ ↝ Γ' → τ ∈ Γ → τ ∈ Γ'
+elevate-var refl x = x
+elevate-var (extend Γ↝Γ') x = tl (elevate-var Γ↝Γ' x)
+
+elevate-var2 : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → τ ∈ Γ → τ ∈ Γ''
+elevate-var2 (refl x) x₁ = elevate-var x x₁
+elevate-var2 (extend Γ↝Γ'↝Γ'') hd = hd
+elevate-var2 (extend Γ↝Γ'↝Γ'') (tl x) = tl (elevate-var2 Γ↝Γ'↝Γ'' x)
+
+elevate : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → Exp Γ τ → Exp Γ'' τ
+elevate Γ↝Γ'↝Γ'' (EVar x) = EVar (elevate-var2 Γ↝Γ'↝Γ'' x)
+elevate Γ↝Γ'↝Γ'' (ECst x) = ECst x
+elevate Γ↝Γ'↝Γ'' (ESuc e) = ESuc (elevate Γ↝Γ'↝Γ'' e)
+elevate Γ↝Γ'↝Γ'' (EIt e e₀ e₁) = EIt (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₀) (elevate Γ↝Γ'↝Γ'' e₁)
+elevate Γ↝Γ'↝Γ'' (ERec v u n) = ERec (elevate Γ↝Γ'↝Γ'' v) (elevate Γ↝Γ'↝Γ'' u) (elevate Γ↝Γ'↝Γ'' n)
+elevate Γ↝Γ'↝Γ'' (EAdd e e₁) = EAdd (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
+elevate Γ↝Γ'↝Γ'' (ELam e) = ELam (elevate (extend Γ↝Γ'↝Γ'') e)
+elevate Γ↝Γ'↝Γ'' (EApp e e₁) = EApp (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
+elevate Γ↝Γ'↝Γ'' (EPair e e₁) =  EPair (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
+elevate Γ↝Γ'↝Γ'' (EInl e) = EInl (elevate Γ↝Γ'↝Γ'' e)
+elevate Γ↝Γ'↝Γ'' (EInr e) = EInr (elevate Γ↝Γ'↝Γ'' e)
+elevate Γ↝Γ'↝Γ'' (EFst e) = EFst (elevate Γ↝Γ'↝Γ'' e)
+elevate Γ↝Γ'↝Γ'' (ESnd e) = ESnd (elevate Γ↝Γ'↝Γ'' e)
+elevate Γ↝Γ'↝Γ'' (ECase c e₁ e₂) = ECase (elevate Γ↝Γ'↝Γ'' c) (elevate (extend Γ↝Γ'↝Γ'') e₁) (elevate (extend Γ↝Γ'↝Γ'') e₂)
+
+exp↑ : ∀ {τ τ' Γ} → Exp Γ τ' → Exp (τ ∷ Γ) τ'
+exp↑ e = elevate (refl (extend refl)) e
 
 -----------------------------------------------------------
 --[int↑] weakens the typing context [Γ] of the target term.
