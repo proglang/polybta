@@ -568,8 +568,7 @@ module DB&PHOAS where
     open Auxiliaries
     open import Types
     open two-level-types-simp
-    open import Terms
-    open two-level-terms-DB&PHOAS
+ 
   
     
 
