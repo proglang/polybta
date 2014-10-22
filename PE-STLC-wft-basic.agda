@@ -12,9 +12,31 @@ open TwoLevelTypes-Simp
 open TwoLevelTerms-Simp-Lift
 open import Types
 open two-level-types-simp
-open import Terms
-open two-level-terms-simp-lift
 
+
+
+
+---------------------------
+--two-level-terms-simp-lift
+---------------------------
+data Exp (Γ : Ctx) : Type → Set where
+  EVar : ∀ {τ} → τ ∈ Γ → Exp Γ τ
+  ECst : ℕ → Exp Γ Num
+  EAdd : Exp Γ Num → Exp Γ Num -> Exp Γ Num
+  ELam : ∀ {τ τ'} → Exp (τ ∷ Γ) τ' → Exp Γ (Fun τ τ')
+  EApp : ∀ {τ τ'} → Exp Γ (Fun τ τ')  → Exp Γ τ → Exp Γ τ'
+
+data AExp (Δ : ACtx) : AType → Set where
+  Var : ∀ {α} → α ∈ Δ → AExp Δ α
+  SCst : ℕ → AExp Δ SNum
+  SAdd : AExp Δ SNum → AExp Δ SNum → AExp Δ SNum
+  SLam : ∀ {α₁ α₂}   → AExp (α₂ ∷ Δ) α₁ → AExp Δ (SFun α₂ α₁)
+  SApp : ∀ {α₁ α₂}   → AExp Δ (SFun α₂ α₁) → AExp Δ α₂ → AExp Δ α₁
+  DCst : ℕ → AExp Δ (D Num)
+  DAdd : AExp Δ (D Num) → AExp Δ (D Num) → AExp Δ (D Num)
+  DLam : ∀ {α₁ α₂}   → AExp ((D α₂) ∷ Δ) (D α₁) → AExp Δ (D (Fun α₂ α₁))
+  DApp : ∀ {α₁ α₂}   → AExp Δ (D (Fun α₂ α₁)) → AExp Δ (D α₂) → AExp Δ (D α₁)
+  Lift : AExp Δ SNum → AExp Δ (D Num)
 
 
 ----------------------------------------------------------
@@ -28,9 +50,27 @@ ATInt Γ (SNum) = ℕ
 ATInt Γ (SFun α₁ α₂) = ∀ {Γ'} → Γ ↝ Γ' → (ATInt Γ' α₁ → ATInt Γ' α₂)
 ATInt Γ (D σ) = Exp Γ σ
   
---------------------
+
+
+-----------------------------------------------------------
 --[int↑] weakens the typing context [Γ] of the target term.
 -----------------------------------------------------------
+elevate-var : ∀ {Γ Γ'} {τ : Type} → Γ ↝ Γ' → τ ∈ Γ → τ ∈ Γ'
+elevate-var refl τ∈Γ = τ∈Γ
+elevate-var (extend Γ↝Γ') τ∈Γ = tl (elevate-var Γ↝Γ' τ∈Γ)
+
+elevate-var2 : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → τ ∈ Γ → τ ∈ Γ'' 
+elevate-var2 (refl x) x₁ = elevate-var x x₁
+elevate-var2 (extend Γ↝Γ'↝Γ'') hd = hd
+elevate-var2 (extend Γ↝Γ'↝Γ'') (tl x) = tl (elevate-var2 Γ↝Γ'↝Γ'' x)
+
+elevate : ∀ {Γ Γ' Γ'' τ} → Γ ↝ Γ' ↝ Γ'' → Exp Γ τ → Exp Γ'' τ
+elevate Γ↝Γ'↝Γ'' (EVar x) = EVar (elevate-var2 Γ↝Γ'↝Γ'' x)
+elevate Γ↝Γ'↝Γ'' (ECst x) = ECst x
+elevate Γ↝Γ'↝Γ'' (EAdd e e₁) = EAdd (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
+elevate Γ↝Γ'↝Γ'' (ELam e) = ELam (elevate (extend Γ↝Γ'↝Γ'') e)
+elevate Γ↝Γ'↝Γ'' (EApp e e₁) = EApp (elevate Γ↝Γ'↝Γ'' e) (elevate Γ↝Γ'↝Γ'' e₁)
+
 int↑ : ∀ {Γ Γ'} α → Γ ↝ Γ' → ATInt Γ α → ATInt Γ' α 
 int↑ SNum p v = v
 int↑ (SFun x x₁) Γ↝Γ' v = λ Γ'↝Γ'' → v (lem-↝-trans Γ↝Γ' Γ'↝Γ'')
