@@ -26,6 +26,8 @@ data Exp (Γ : Ctx) : Type → Set where
   ELam : ∀ {τ τ'} → Exp (τ ∷ Γ) τ' → Exp Γ (Fun τ τ')
   EApp : ∀ {τ τ'} → Exp Γ (Fun τ τ')  → Exp Γ τ → Exp Γ τ'
 
+--how to single out variables?
+
 data AExp (Δ : ACtx) : AType → Set where
   Var : ∀ {α} → α ∈ Δ → AExp Δ α
   SCst : ℕ → AExp Δ SNum
@@ -49,7 +51,6 @@ ATInt : Ctx → AType → Set
 ATInt Γ (SNum) = ℕ
 ATInt Γ (SFun α₁ α₂) = ∀ {Γ'} → Γ ↝ Γ' → (ATInt Γ' α₁ → ATInt Γ' α₂)
 ATInt Γ (D σ) = Exp Γ σ
-  
 
 
 -----------------------------------------------------------
@@ -75,6 +76,7 @@ int↑ : ∀ {Γ Γ'} α → Γ ↝ Γ' → ATInt Γ α → ATInt Γ' α
 int↑ SNum p v = v
 int↑ (SFun x x₁) Γ↝Γ' v = λ Γ'↝Γ'' → v (lem-↝-trans Γ↝Γ' Γ'↝Γ'')
 int↑ (D x₁) Γ↝Γ' v = elevate (refl Γ↝Γ') v
+
 
 ------------------------------------------------------------
 --[AEnv] as the environment storing the "target values"
@@ -105,8 +107,8 @@ consD σ env = (_∷_ {α = D σ} (EVar hd) (env↑ (extend {τ = σ} refl) env)
 lookup : ∀ {α Δ Γ} → AEnv Γ Δ → α ∈ Δ → ATInt Γ α
 lookup ( v ∷ env) hd =  v 
 lookup (v ∷ env) (tl x) = lookup env x
-  
 
+ 
 ------------------------------------------------------------------------
 --[pe] upon receiving a two-level expression [AExp] and an environment
 --gives back the corresponding partially evaluated result where all 
