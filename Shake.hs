@@ -20,35 +20,37 @@ import qualified Options.Applicative as Opt
 import Test.Tasty
 import Test.Tasty.HUnit hiding (assert)
        
-       
 import Debug.Trace
+       
+-- TODO: Can we cope with modules in subdirectories?
+-- TODO: changing the stdlib given at the command line should rebuild everything
+-- TODO: add default include dirs?
+-- TODO: allow for "--" separation of agda args and agda files?
 
+-- -------------------------------------------------------------------
+-- Types & Conversions
+-- -------------------------------------------------------------------
 type Module = String
      
-data PlanArgs = PlanArgs { pArg_ignored :: [Module]
-                         , pArg_agdaArgs :: [String]
-                         , pArg_sources :: [FilePath]
-                         , pArg_root :: FilePath
-                         }
+moduleToTarget :: Module -> FilePath
+moduleToTarget m = "_build" </> replace '.' '/' m <.> "want"
+sourceToModule :: FilePath -> Module
+sourceToModule src = assert (isRelative src) $ replace '/' '.' (dropExtension src)
+        
 
-plan :: PlanArgs -> Rules ()
-plan PlanArgs{..} = do
-  let modules = map sourceToModule pArg_sources
-  want (wantedTargets modules)
-  "_build/*.want" %> \out -> do
-     let sourceDir = takeDirectory out </> ".."
-         source = sourceDir </> takeFileName out -<.> "agda"              
-     need [source]
-     listedDeps <- liftIO $ getDepModules source
-     let deps = wantedTargets listedDeps
-     need deps
-     let buildDir = "_build"
-     command_ [Cwd buildDir] "agda" (pArg_agdaArgs 
-                                    ++[fromJust (List.stripPrefix "_build/" source)])
-     liftIO $ writeFile out ""
-     return ()
-  where wantedTargets ms = [moduleToTarget m | m <- ms, (not (m `elem` pArg_ignored))]
-  
+-- -------------------------------------------------------------------
+-- Constants
+-- -------------------------------------------------------------------
+
+-- Agda does not reliably produce output files, so we create dummy files with extension "wantedExt"
+wantedExt :: String
+wantedExt = ".want"
+          
+-- The directory for build files
+buildDir :: FilePath
+buildDir = "_build"
+         
+-- List of modules provided by agda's stdlib
 -- TODO: find a way to read those from the actual stdlib dir
 manualAgdaLibs :: [Module]
 manualAgdaLibs = 
@@ -74,6 +76,38 @@ manualAgdaLibs =
   , "Data.Vec"
   ]
   
+         
+
+-- -------------------------------------------------------------------
+-- Rules
+-- -------------------------------------------------------------------
+data PlanArgs = PlanArgs { pArg_ignored :: [Module]
+                         , pArg_agdaArgs :: [String]
+                         , pArg_sources :: [FilePath]
+                         , pArg_root :: FilePath
+                         }
+     
+plan :: PlanArgs -> Rules ()
+plan PlanArgs{..} = do
+  let modules = map sourceToModule pArg_sources
+  want (wantedTargets modules)
+  (buildDir </> "*" <.> wantedExt) %> \out -> do
+     let sourceDir = takeDirectory out </> ".."
+         source = sourceDir </> takeFileName out -<.> "agda"              
+     need [source]
+     listedDeps <- liftIO $ getDepModules source
+     let deps = wantedTargets listedDeps
+     need deps
+     command_ [] "agda" (source:pArg_agdaArgs)
+     liftIO $ writeFile out ""
+     return ()
+  where wantedTargets ms = [moduleToTarget m | m <- ms, (not (m `elem` pArg_ignored))]
+  
+  
+
+-- -------------------------------------------------------------------
+-- Commandline options
+-- -------------------------------------------------------------------
 data Opt = Opt { optSources :: [FilePath]
                , optIncludes :: [FilePath]
                }
@@ -91,10 +125,12 @@ getOpt = Opt.execParser (Opt.info (Opt.helper <*> parseOpt)
                              <> Opt.help "add directory to library path"
                              <> Opt.metavar "DIR"))
                  
-  
+-- -------------------------------------------------------------------
+-- Program
+-- -------------------------------------------------------------------
 main :: IO ()
 main = do
-  opt@Opt{..} <- getOpt
+  Opt{..} <- getOpt
   failingModules <- parseFailingModules <$> Sys.readFile "failing-modules.txt"
   -- TODO: do not hard-code --allow-unsolved-metas
   here <- Sys.getCurrentDirectory
@@ -113,6 +149,11 @@ reportFailing ms = do
     putStr "  * " 
     putStrLn m
 
+getDepModules :: FilePath -> IO [Module]
+getDepModules f = do
+  contents <- readUtf8File f
+  return $ parseImports contents
+  
   
 -- TODO: do I want these?
 getSources :: IO [FilePath]
@@ -120,6 +161,11 @@ getSources = filter (".agda" `List.isSuffixOf`) <$> Sys.getDirectoryContents "."
 getLib :: IO [FilePath]
 getLib = undefined
 
+       
+
+-- -------------------------------------------------------------------
+-- Parsers
+-- -------------------------------------------------------------------
 
 parseFailingModules :: String -> [Module]
 parseFailingModules file = filter (not . ignored) (map trim (lines file))
@@ -127,11 +173,6 @@ parseFailingModules file = filter (not . ignored) (map trim (lines file))
         ignored s = null s || "#" `List.isPrefixOf` s
      
            
-getDepModules :: FilePath -> IO [Module]
-getDepModules f = do
-  contents <- readUtf8File f
-  return $ parseImports contents
-  
 parseImports :: String -> [Module]
 parseImports = catMaybes . map (Re.match p_import) . lines
   where p_import = spaces *> optional ("open " *> spaces) 
@@ -142,17 +183,25 @@ parseIdent :: Re.RE Char String
 parseIdent = many (Re.psym (\c -> not (c `elem` "()") 
                                   && not (Char.isSpace c)))
            
+
+-- -------------------------------------------------------------------
+-- Utils
+-- -------------------------------------------------------------------
 readUtf8File :: FilePath -> IO String
 readUtf8File f = Text.unpack . Text.decodeUtf8  <$> BS.readFile f
      
-              
-moduleToTarget :: String -> FilePath
-moduleToTarget m = "_build" </> replace '.' '/' m <.> "want"
-sourceToModule :: FilePath -> String
-sourceToModule src = assert (isRelative src) $ replace '/' '.' (dropExtension src)
 replace :: Char -> Char -> String -> String
 replace old new s = map (\c -> if c == old then new else c) s
         
+stripDirectory :: FilePath -> FilePath -> Maybe FilePath
+stripDirectory dir p = List.stripPrefix (addTrailingPathSeparator dir) p
+        
+
+-- -------------------------------------------------------------------
+-- Tests
+-- -------------------------------------------------------------------
+        
+tests :: TestTree
 tests = testGroup "Tests" [
           testGroup "Conversions" [
             testCase "src -> module" $
