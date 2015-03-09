@@ -415,7 +415,7 @@ ev (suc fuel) env (Fix f) = ev (suc fuel) (f' ∷ env) f
     where f' = ev fuel env (Fix f)
 ev zero _         (Fix f) = nothing
 
-
+--specification using partiality monad
 
 
 ------------------------------------
@@ -504,7 +504,7 @@ module TwoLevel where
   
   int↑ : ∀ { α Γ Γ'} → Γ ↝ Γ' → ATInt Γ α → ATInt Γ' α
   int↑ refl v = v
-  int↑ {D τ} (extend Γ↝Γ') e = exp↑ (int↑ Γ↝Γ' e)
+  int↑ {D τ} (extend Γ↝Γ') e = {!exp↑ (int↑ Γ↝Γ' e)!}
   int↑ {SNum} _ v = v
   int↑ {SFun α α₁} Γ↝Γ' f =
     λ Γ'↝Γ'' x → f (Γ↝Γ' ⊕ Γ'↝Γ'') x
