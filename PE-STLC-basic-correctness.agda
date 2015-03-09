@@ -105,9 +105,8 @@ module correctness where
                   Γ'↝Γ'' ⊢ env' ↝ env'' →
                   let Γ↝Γ'' = lem-↝-trans Γ↝Γ' Γ'↝Γ'' in
                   Γ↝Γ'' ⊢ env ↝ env'' 
-    env↝trans {.Γ'} {Γ'} {Γ''} {.refl} {Γ'↝Γ''} {.env'} {env'} (refl .env') env'↝env''
-      rewrite sym (lem-↝-refl-id  Γ'↝Γ'') = env'↝env'' 
-    env↝trans (extend v env↝env') env'↝env'' = env↝trans (extend v env↝env') env'↝env''
+    env↝trans env'↝env'' (refl _) = env'↝env''
+    env↝trans env'↝env'' (extend v env↝env') = extend v (env↝trans env'↝env'' env↝env')
 
     
     -------------------------------------------------------------

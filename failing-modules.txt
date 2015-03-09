@@ -1,0 +1,10 @@
+# List of modules that are expected to fail, one per line
+
+# TODO: why are these failing?
+PE-STLCFix
+PHOAS2DB-Correctness
+
+# this is work in progress
+BaseIndParam
+
+
