@@ -1,4 +1,4 @@
-module PE-STLCfix where
+module PE-STLCfix-Yang where
 open import Data.Nat
 open import Lib
 open Auxiliaries
