@@ -1,9 +1,9 @@
 -- Partial evaluation of the simply typed lambda calculus with a fixpoint combinator.
--- version by Lu
+-- Lu's version
 
 
 
-module PE-STLCFix  where
+module PE-STLCfix-Lu  where
 
 open import Data.Nat
 open import Lib
