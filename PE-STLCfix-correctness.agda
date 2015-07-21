@@ -8,9 +8,6 @@ open import Data.Empty
 ------------------
 --some auxiliaries
 ------------------
---------------------------
---this a test of using git 
---------------------------
 stripα : AType → Type
 stripα (D x) = x
 stripα (SFun aty aty₁) = Fun (stripα aty) (stripα aty₁)
